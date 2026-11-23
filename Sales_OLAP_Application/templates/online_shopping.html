@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Online Medicine Shopping | PharmaTrack DW{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div class="page-header">
+    <div class="page-header-text">
+      <h2>🛒 Online Medicine Shopping</h2>
+      <p>Choose an official pharmacy website to check products, service availability, and ordering options for your location.</p>
+    </div>
+    <div class="page-header-badge">
+      <span class="badge badge-catalog">Official External Links</span>
+    </div>
+  </div>
+
+  <div class="alert-box alert-clinical shopping-disclaimer" role="note">
+    <div class="alert-icon">ℹ️</div>
+    <div class="alert-body">
+      <strong>Ordering and availability:</strong> These links open external websites. PharmaTrack does not take orders, process payments, or confirm live stock or delivery coverage. Follow each provider’s prescription rules and check service availability for your address before ordering.
+    </div>
+  </div>
+
+  <section class="shopping-grid" aria-label="Official medicine shopping websites">
+    <article class="shopping-card shopping-card-online">
+      <div class="shopping-card-topline">ONLINE STORE</div>
+      <div class="shopping-card-icon" aria-hidden="true">💊</div>
+      <h3>Apollo Pharmacy</h3>
+      <p>Shop medicines and healthcare products through Apollo’s official online pharmacy. Delivery and product availability depend on the address entered on its site.</p>
+      <a class="btn-primary shopping-action" href="https://www.apollopharmacy.in/" target="_blank" rel="noopener noreferrer">
+        Shop at Apollo Pharmacy ↗
+      </a>
+      <span class="shopping-domain">apollopharmacy.in</span>
+    </article>
+
+    <article class="shopping-card shopping-card-online">
+      <div class="shopping-card-topline">ONLINE STORE</div>
+      <div class="shopping-card-icon" aria-hidden="true">🏪</div>
+      <h3>MedPlus Mart</h3>
+      <p>Open MedPlus’s official online store to search for medicines and other healthcare products. Ordering coverage varies by service area.</p>
+      <a class="btn-primary shopping-action" href="https://www.medplusmart.com/" target="_blank" rel="noopener noreferrer">
+        Shop at MedPlus Mart ↗
+      </a>
+      <span class="shopping-domain">medplusmart.com</span>
+    </article>
+
+    <article class="shopping-card shopping-card-info">
+      <div class="shopping-card-topline">PHARMACY INFORMATION</div>
+      <div class="shopping-card-icon" aria-hidden="true">🏥</div>
+      <h3>SIMS Hospital Pharmacy</h3>
+      <p>SIMS’s official page describes its 24/7 hospital pharmacy in Vadapalani, Chennai. It does not provide a confirmed public online checkout, so contact SIMS to ask about ordering or delivery.</p>
+      <a class="btn-secondary shopping-action" href="https://www.simshospitals.com/pharmacy" target="_blank" rel="noopener noreferrer">
+        View SIMS Pharmacy Information ↗
+      </a>
+      <span class="shopping-domain">simshospitals.com/pharmacy</span>
+    </article>
+  </section>
+
+  <p class="shopping-footnote">PharmaTrack DW is an educational project. The external providers operate their own websites, accounts, checkout, and delivery services.</p>
+</div>
+{% endblock %}

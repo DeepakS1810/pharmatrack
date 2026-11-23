@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Hospital Staff Portal - Healthcare Facility Management{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  
+  <div class="page-header">
+    <div class="page-header-text">
+      <h2>🏥 Hospital Staff Portal: Facility Profile Management</h2>
+      <p>Authorized administration for hospital staff to maintain institutional contact lines, casualty facility status, and listed clinical specialties.</p>
+    </div>
+    <div class="page-header-badge">
+      <span class="badge badge-staff">Hospital Administration Role</span>
+    </div>
+  </div>
+
+  {% if hospital %}
+  <div class="owner-workspace-grid">
+    
+    <!-- LEFT: HOSPITAL CURRENT PROFILE -->
+    <div class="owner-profile-card">
+      <div class="profile-card-header">
+        <span class="profile-chain-badge badge-type-{{ hospital.hospital_type|lower }}">{{ hospital.hospital_type }}</span>
+        <h3>{{ hospital.name }}</h3>
+      </div>
+      <div class="profile-details-list">
+        <div class="profile-item">
+          <strong>Address:</strong>
+          <span>{{ hospital.address }}, {{ hospital.city }}, {{ hospital.state }} - {{ hospital.pincode }}</span>
+        </div>
+        <div class="profile-item">
+          <strong>General Line:</strong>
+          <span><a href="tel:{{ hospital.phone }}">{{ hospital.phone }}</a></span>
+        </div>
+        <div class="profile-item">
+          <strong>Emergency Helpline:</strong>
+          <span><a href="tel:{{ hospital.emergency_helpline }}">{{ hospital.emergency_helpline }}</a></span>
+        </div>
+        <div class="profile-item">
+          <strong>Official Website:</strong>
+          {% if hospital.website %}
+            <a href="{{ hospital.website }}" target="_blank" rel="noopener">{{ hospital.website }} ↗</a>
+          {% else %}
+            <span class="text-muted">Not specified</span>
+          {% endif %}
+        </div>
+        <div class="profile-item">
+          <strong>Last Verified:</strong>
+          <span>{{ hospital.last_verified }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: UPDATE FORM -->
+    <div class="owner-form-card">
+      <div class="form-card-header">
+        <h3>Update Hospital Profile & Services</h3>
+        <p class="form-subtitle">Record changes to official contact numbers, operating hours, and listed medical departments.</p>
+      </div>
+
+      <form action="{{ url_for('hospital_update_profile') }}" method="POST" class="stock-update-form">
+        <input type="hidden" name="hospital_key" value="{{ hospital.hospital_key }}">
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="hosp-phone-input" class="form-label">Hospital Phone Line:</label>
+            <input type="text" id="hosp-phone-input" name="phone" class="form-control" value="{{ hospital.phone }}" required>
+          </div>
+
+          <div class="form-group">
+            <label for="hosp-web-input" class="form-label">Official Website URL:</label>
+            <input type="url" id="hosp-web-input" name="website" class="form-control" value="{{ hospital.website or '' }}" placeholder="https://">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="hosp-hours-input" class="form-label">Operating Hours Description:</label>
+          <input type="text" id="hosp-hours-input" name="hours" class="form-control" value="24x7 Emergency, OPD: 08:00 - 17:00" required>
+        </div>
+
+        <div class="form-group">
+          <label for="hosp-services-input" class="form-label">Listed Clinical Services & Specialties:</label>
+          <textarea id="hosp-services-input" name="services" class="form-control" rows="3" required>{{ hospital.listed_services }}</textarea>
+          <span class="form-hint">Separate specialties with commas (e.g. Emergency Care, Intensive Care Unit, Nephrology, Blood Bank).</span>
+        </div>
+
+        <div class="form-group">
+          <label for="hosp-notes-input" class="form-label">Administrative Notes / Context:</label>
+          <input type="text" id="hosp-notes-input" name="notes" class="form-control" placeholder="e.g. Annual accreditation renewed, new trauma ward operational">
+        </div>
+
+        <div class="form-actions-bar">
+          <button type="submit" class="btn-primary btn-save">
+            💾 Save Profile Updates
+          </button>
+          <button type="reset" class="btn-secondary btn-cancel">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+
+  <!-- AUDIT TRAIL OF HOSPITAL UPDATES -->
+  <div class="data-table-card">
+    <div class="card-header">
+      <h3>Hospital Updates Log ({{ hospital.name }})</h3>
+      <span class="table-subtitle">Audit trail of staff-submitted profile updates</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Log ID</th>
+            <th>Updated By</th>
+            <th>Phone</th>
+            <th>Services Summary</th>
+            <th>Notes</th>
+            <th>Timestamp</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if updates %}
+            {% for u in updates %}
+            <tr>
+              <td>#{{ u.update_id }}</td>
+              <td><strong>{{ u.updated_by }}</strong></td>
+              <td>{{ u.phone }}</td>
+              <td><small>{{ u.services }}</small></td>
+              <td>{{ u.notes or '-' }}</td>
+              <td>{{ u.timestamp }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="6" class="text-center text-muted">No previous profile updates logged for this hospital.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="empty-state-card">
+    <h3>No Hospital Assigned</h3>
+    <p>Your user account is not currently assigned to any hospital facility.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

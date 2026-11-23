@@ -1,0 +1,432 @@
+{% extends "base.html" %}
+
+{% block title %}OTP Verification - PharmaTrack DW{% endblock %}
+
+{% block extra_head %}
+<style>
+  .otp-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .otp-status-submitted  { background: #dbeafe; color: #1d4ed8; }
+  .otp-status-accepted   { background: #dbeafe; color: #1d4ed8; }
+  .otp-status-sent       { background: #d1fae5; color: #047857; }
+  .otp-status-delivered  { background: #bbf7d0; color: #15803d; }
+  .otp-status-failed     { background: #fee2e2; color: #b91c1c; }
+  .otp-status-pending    { background: #f3f4f6; color: #6b7280; }
+  .otp-status-verified   { background: #bbf7d0; color: #15803d; }
+  .otp-status-error      { background: #fee2e2; color: #b91c1c; }
+  .otp-status-unknown    { background: #fef3c7; color: #92400e; }
+  .otp-status-not_configured { background: #fee2e2; color: #b91c1c; }
+
+  .channel-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.18rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    background: #ede9fe;
+    color: #5b21b6;
+  }
+
+  .otp-destination-info {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.9rem 1.1rem;
+    margin-bottom: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+  .otp-destination-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .otp-phone-label {
+    font-size: 0.95rem;
+    color: #374151;
+  }
+  .otp-phone-number {
+    font-weight: 700;
+    color: #111827;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.08em;
+  }
+
+  .attempts-remaining {
+    font-size: 0.82rem;
+    color: #6b7280;
+    margin-top: 0.4rem;
+  }
+  .attempts-remaining.low { color: #dc2626; font-weight: 600; }
+
+  .otp-timer {
+    font-size: 0.82rem;
+    color: #6b7280;
+    margin-top: 0.1rem;
+  }
+  .otp-timer.urgent { color: #dc2626; font-weight: 700; }
+
+  .otp-actions-row {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 0.9rem;
+  }
+
+  .btn-resend {
+    flex: 1;
+    padding: 0.6rem 1rem;
+    border: 1.5px solid #6366f1;
+    background: white;
+    color: #6366f1;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: background 0.15s;
+    min-width: 130px;
+  }
+  .btn-resend:disabled {
+    border-color: #d1d5db;
+    color: #9ca3af;
+    cursor: not-allowed;
+  }
+  .btn-resend:not(:disabled):hover { background: #eef2ff; }
+
+  .btn-whatsapp {
+    flex: 1;
+    padding: 0.6rem 1rem;
+    border: 1.5px solid #25d366;
+    background: white;
+    color: #128c3f;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: background 0.15s;
+    min-width: 160px;
+  }
+  .btn-whatsapp:hover { background: #f0fdf4; }
+
+  .otp-code-input-wrapper {
+    display: flex;
+    justify-content: center;
+    margin: 1rem 0 0.4rem;
+  }
+  .otp-code-input {
+    font-size: 2rem;
+    letter-spacing: 0.5em;
+    text-align: center;
+    width: 220px;
+    padding: 0.6rem 1rem;
+    border: 2px solid #c7d2fe;
+    border-radius: 10px;
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .otp-code-input:focus { border-color: #6366f1; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-wrapper">
+
+  <!-- EMERGENCY DIRECT ACCESS NOTICE -->
+  <aside class="emergency-hero-callout" aria-label="Emergency Direct Access">
+    <div class="emergency-hero-header">
+      <span class="emergency-icon-large">🚨</span>
+      <div>
+        <h3>Facing a Life-Threatening Emergency?</h3>
+        <p>You do not need to sign in. Call official emergency responders directly:</p>
+      </div>
+    </div>
+    <div class="emergency-hero-buttons">
+      <a href="tel:108" class="btn-emergency-hero call-108" aria-label="Call 108 Tamil Nadu Emergency Ambulance">
+        <span class="btn-icon">📞</span>
+        <div>
+          <span class="btn-title">Call 108</span>
+          <span class="btn-desc">Tamil Nadu Ambulance Service</span>
+        </div>
+      </a>
+      <a href="tel:112" class="btn-emergency-hero call-112" aria-label="Call 112 All India Emergency Response">
+        <span class="btn-icon">📞</span>
+        <div>
+          <span class="btn-title">Call 112</span>
+          <span class="btn-desc">All India Emergency ERSS</span>
+        </div>
+      </a>
+      <a href="{{ url_for('emergency') }}" class="btn-emergency-alt">
+        🏥 Find Nearest Emergency Hospital ↗
+      </a>
+    </div>
+  </aside>
+
+  <!-- OTP VERIFICATION CARD -->
+  <div class="login-card-container">
+    <div class="login-card totp-auth-card">
+
+      <div class="login-header">
+        <div class="login-icon">✉️</div>
+        <h2>OTP Verification</h2>
+        <p class="login-desc" id="otp-delivery-message">
+          {% set ds = delivery_status|lower %}
+          {% if ds == 'delivered' %}
+            Brevo reports that the email was delivered. Enter the code below to complete sign in.
+          {% elif ds == 'sent' %}
+            Brevo reports that the email was sent. Check your inbox and spam folder.
+          {% elif ds in ['submitted', 'accepted', 'pending', 'unknown'] %}
+            Brevo has submitted the email request, but delivery to your inbox is not confirmed yet.
+          {% else %}
+            The email could not be submitted. Check the status below, then return to sign-in and try again.
+          {% endif %}
+        </p>
+      </div>
+
+      <div class="user-verification-chip">
+        <span class="badge badge-public">Signing in as:</span>
+        <span class="verification-account-name">
+          <strong>{{ username }}</strong> ({{ role|replace('_', ' ')|title }})
+        </span>
+      </div>
+
+      <!-- Destination & channel info -->
+      <div class="otp-destination-info">
+        <div class="otp-destination-row">
+          <span class="otp-phone-label">Registered email:</span>
+          <span class="otp-phone-number">{{ masked_dest }}</span>
+        </div>
+        <div class="otp-destination-row">
+          <span>
+            <span class="channel-badge">✉️ Email</span>
+          </span>
+          <span id="otp-status-slot">
+            {% set ds = delivery_status|lower %}
+            {% if ds == 'submitted' %}
+              <span class="otp-status-badge otp-status-submitted">⏳ Submitted</span>
+            {% elif ds == 'accepted' %}
+              <span class="otp-status-badge otp-status-accepted">✅ Accepted</span>
+            {% elif ds == 'sent' %}
+              <span class="otp-status-badge otp-status-sent">📤 Sent</span>
+            {% elif ds == 'delivered' %}
+              <span class="otp-status-badge otp-status-delivered">✔ Delivered</span>
+            {% elif ds == 'failed' %}
+              <span class="otp-status-badge otp-status-failed">❌ Failed</span>
+            {% elif ds == 'verified' %}
+              <span class="otp-status-badge otp-status-verified">✔ Verified</span>
+            {% elif ds == 'error' %}
+              <span class="otp-status-badge otp-status-error">⚠ Error</span>
+            {% elif ds == 'unknown' %}
+              <span class="otp-status-badge otp-status-unknown">? Status unknown</span>
+            {% elif ds == 'not_configured' %}
+              <span class="otp-status-badge otp-status-not_configured">⚠ Not configured</span>
+            {% else %}
+              <span class="otp-status-badge otp-status-pending">⏳ Pending</span>
+            {% endif %}
+          </span>
+        </div>
+
+        <!-- Expiry countdown -->
+        <div class="otp-timer" id="otp-expiry-timer">
+          {% if expiry_seconds > 0 %}
+            Code expires in <strong id="expiry-countdown">{{ expiry_seconds }}</strong>s
+          {% else %}
+            Code has expired — please request a new one.
+          {% endif %}
+        </div>
+      </div>
+
+      {% if error %}
+      <div class="auth-error-box" role="alert">
+        <span class="error-icon">⚠️</span>
+        <span class="error-message">{{ error }}</span>
+      </div>
+      {% endif %}
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+          <div class="auth-error-box {% if cat == 'success' %}auth-success-box{% endif %}" role="alert">
+            <span class="error-icon">
+              {% if cat == 'success' %}✅{% elif cat == 'info' %}ℹ️{% else %}⚠️{% endif %}
+            </span>
+            <span class="error-message">{{ msg }}</span>
+          </div>
+        {% endfor %}
+      {% endwith %}
+
+      <!-- OTP form -->
+      <form action="{{ url_for('login_otp_verify') }}" method="POST" class="auth-form" autocomplete="off">
+        <div class="form-group">
+          <label for="otp_code" class="form-label text-center">
+            <strong>Enter 6-Digit OTP Code</strong> <span class="required">*</span>
+          </label>
+          <div class="otp-code-input-wrapper">
+            <input
+              type="text"
+              id="otp_code"
+              name="otp_code"
+              class="otp-code-input"
+              placeholder="000000"
+              maxlength="6"
+              pattern="[0-9]{6}"
+              required
+              autofocus
+              autocomplete="one-time-code"
+              inputmode="numeric"
+            >
+          </div>
+          <span class="form-hint text-center">Enter the 6-digit code sent to your registered email address.</span>
+        </div>
+
+        <!-- Attempts remaining -->
+        <p class="attempts-remaining {% if attempts_remaining <= 2 %}low{% endif %}">
+          {{ attempts_remaining }} of {{ max_attempts }} attempt(s) remaining
+        </p>
+
+        <button type="submit" class="btn-submit-login">
+          Verify &amp; Sign In →
+        </button>
+      </form>
+
+      <!-- Resend email code -->
+      <div class="otp-actions-row">
+        <form action="{{ url_for('login_otp_resend') }}" method="POST" style="flex:1;">
+          <button
+            type="submit"
+            class="btn-resend"
+            id="btn-resend"
+            {% if resend_wait > 0 %}disabled{% endif %}
+          >
+            {% if resend_wait > 0 %}
+              Resend (<span id="resend-countdown">{{ resend_wait }}</span>s)
+            {% else %}
+              🔄 Resend Email Code
+            {% endif %}
+          </button>
+        </form>
+
+      </div>
+
+      <div class="auth-cancel-row">
+        <a href="{{ url_for('cancel_otp') }}" class="link-muted">
+          ← Cancel and return to Sign In
+        </a>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  var expiryEl = document.getElementById('expiry-countdown');
+  var timerEl = document.getElementById('otp-expiry-timer');
+  var expirySeconds = {{ expiry_seconds | int }};
+  var statusSlot = document.getElementById('otp-status-slot');
+  var deliveryMessage = document.getElementById('otp-delivery-message');
+  var resendBtn = document.getElementById('btn-resend');
+  var resendEl = document.getElementById('resend-countdown');
+  var resendWait = {{ resend_wait | int }};
+  var currentStatus = '{{ delivery_status|lower }}';
+
+  function renderStatus(status) {
+    if (!statusSlot) return;
+    currentStatus = String(status || 'pending').toLowerCase();
+    var map = {
+      submitted: ['otp-status-submitted', '⏳ Submitted — delivery pending'],
+      accepted: ['otp-status-accepted', '⏳ Accepted — delivery pending'],
+      sent: ['otp-status-sent', '📤 Sent — delivery not confirmed'],
+      delivered: ['otp-status-delivered', '✔ Delivered'],
+      failed: ['otp-status-failed', '❌ Failed'],
+      error: ['otp-status-error', '⚠ Error'],
+      unknown: ['otp-status-unknown', '? Status unknown'],
+      not_configured: ['otp-status-not_configured', '⚠ Not configured'],
+      verified: ['otp-status-verified', '✔ Verified'],
+      pending: ['otp-status-pending', '⏳ Pending']
+    };
+    var view = map[currentStatus] || map.pending;
+    statusSlot.textContent = '';
+    var badge = document.createElement('span');
+    badge.className = 'otp-status-badge ' + view[0];
+    badge.textContent = view[1];
+    statusSlot.appendChild(badge);
+
+    if (deliveryMessage) {
+      if (currentStatus === 'delivered') {
+        deliveryMessage.textContent = 'Brevo reports that the email was delivered. Enter the code below to complete sign in.';
+      } else if (currentStatus === 'sent') {
+        deliveryMessage.textContent = 'Brevo reports that the email was sent. Check your inbox and spam folder.';
+      } else if (['submitted', 'accepted', 'pending', 'unknown'].includes(currentStatus)) {
+        deliveryMessage.textContent = 'Brevo has submitted the email request, but delivery to your inbox is not confirmed yet.';
+      } else {
+        deliveryMessage.textContent = 'The email could not be submitted. Check the status below, then return to sign-in and try again.';
+      }
+    }
+  }
+
+  if (expiryEl && expirySeconds > 0) {
+    var expiryInterval = setInterval(function () {
+      expirySeconds--;
+      if (expirySeconds <= 0) {
+        clearInterval(expiryInterval);
+        timerEl.innerHTML = '<span style="color:#dc2626;font-weight:700;">Code has expired — sign in again to request a new one.</span>';
+      } else {
+        expiryEl.textContent = expirySeconds;
+        if (expirySeconds <= 30) timerEl.classList.add('urgent');
+        renderStatus(currentStatus);
+      }
+    }, 1000);
+  }
+
+  if (resendBtn && resendWait > 0) {
+    var resendInterval = setInterval(function () {
+      resendWait--;
+      if (resendWait <= 0) {
+        clearInterval(resendInterval);
+        resendBtn.disabled = false;
+        resendBtn.textContent = '🔄 Resend Email Code';
+      } else if (resendEl) {
+        resendEl.textContent = resendWait;
+      }
+    }, 1000);
+  }
+
+  var otpInput = document.getElementById('otp_code');
+  if (otpInput) {
+    otpInput.addEventListener('input', function () {
+      this.value = this.value.replace(/\D/g, '').slice(0, 6);
+      if (this.value.length === 6) this.closest('form').submit();
+    });
+  }
+
+  function pollOtpStatus() {
+    fetch('/api/otp/status')
+      .then(function (response) { return response.json(); })
+      .then(function (data) {
+        if (data && data.status) renderStatus(data.status);
+      })
+      .catch(function () {});
+  }
+  renderStatus(currentStatus);
+  setInterval(pollOtpStatus, 8000);
+})();
+</script>
+{% endblock %}
+
+

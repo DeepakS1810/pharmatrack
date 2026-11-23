@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}PharmaTrack DW{% endblock %} - Data Warehouse & Public Health Intelligence</title>
+  
+  <!-- Modern Inter & Poppins Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="theme-light">
+
+  <!-- TOP EMERGENCY BANNER (ALWAYS VISIBLE & ACCESSIBLE) -->
+  <aside class="emergency-bar" aria-label="Emergency Services">
+    <div class="emergency-bar-inner">
+      <div class="emergency-notice">
+        <span class="emergency-badge">🚨 EMERGENCY ASSISTANCE</span>
+        <span class="emergency-text" data-i18n="emergency_banner_text">For life-threatening medical emergencies, call official national dispatch immediately:</span>
+      </div>
+      <div class="emergency-actions">
+        <a href="tel:108" class="btn-tap-call call-108" title="Call 108 Tamil Nadu Ambulance" aria-label="Call 108 Tamil Nadu Emergency Ambulance">
+          <span class="call-icon">📞</span> <strong>108</strong> <span class="call-sub">(TN Ambulance)</span>
+        </a>
+        <a href="tel:112" class="btn-tap-call call-112" title="Call 112 India ERSS Emergency" aria-label="Call 112 All India Emergency Response">
+          <span class="call-icon">📞</span> <strong>112</strong> <span class="call-sub">(India ERSS)</span>
+        </a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN HEADER -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="brand-area">
+        <a href="{{ url_for('medicines') if session.get('user_id') else url_for('login') }}" class="brand-link">
+          <div class="brand-logo-icon">💊</div>
+          <div>
+            <h1 class="brand-title">PharmaTrack DW</h1>
+            <p class="brand-subtitle">Medicine Demand, Pharmacy & Hospital Access Intelligence Warehouse</p>
+          </div>
+        </a>
+      </div>
+
+      <div class="header-tools">
+        <!-- Language Switcher (English / Tamil) -->
+        <div class="lang-switch-wrapper" title="Switch Language">
+          <label for="lang-selector" class="sr-only">Choose Language</label>
+          <select id="lang-selector" class="lang-select" aria-label="Language selection">
+            <option value="en" selected>English (EN)</option>
+            <option value="ta">தமிழ் (Tamil)</option>
+          </select>
+        </div>
+
+        {% if session.get('user_id') %}
+          <div class="user-chip">
+            <span class="user-role-badge role-{{ session.get('role') }}">
+              {{ session.get('role')|replace('_', ' ')|title }}
+            </span>
+            <span class="user-name">{{ session.get('display_name') }}</span>
+            <a href="{{ url_for('security_settings') }}" class="btn-security-link" title="Account Security & Two-Step Verification">🔒 Security</a>
+            <a href="{{ url_for('logout') }}" class="btn-logout" title="Sign out of account">Sign Out</a>
+          </div>
+        {% else %}
+          <div class="auth-header-actions">
+            <a href="{{ url_for('login') }}" class="btn-login-header">Sign In</a>
+            <a href="{{ url_for('register') }}" class="btn-register-header">Create Account</a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- PRIMARY NAVIGATION (STRICT ORDER SPECIFIED BY REQUIREMENTS) -->
+    {% if session.get('user_id') %}
+    <nav class="main-nav" aria-label="Main Navigation">
+      <div class="nav-container">
+        <ul class="nav-list">
+          <li class="nav-item">
+            <a href="{{ url_for('medicines') }}" class="nav-link {{ 'active' if request.endpoint == 'medicines' else '' }}" data-i18n="nav_medicine">
+              🔍 Medicine Search
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="{{ url_for('pharmacies') }}" class="nav-link {{ 'active' if request.endpoint == 'pharmacies' else '' }}" data-i18n="nav_pharmacy">
+              🏥 Pharmacy Finder
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="{{ url_for('hospitals') }}" class="nav-link {{ 'active' if request.endpoint == 'hospitals' else '' }}" data-i18n="nav_hospital">
+              🚑 Hospital Finder
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="{{ url_for('online_shopping') }}" class="nav-link {{ 'active' if request.endpoint == 'online_shopping' else '' }}">
+              🛒 Online Medicine Shopping
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="{{ url_for('emergency') }}" class="nav-link nav-link-emergency {{ 'active' if request.endpoint == 'emergency' else '' }}" data-i18n="nav_emergency">
+              🚨 Emergency Help
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="{{ url_for('analytics') }}" class="nav-link {{ 'active' if request.endpoint == 'analytics' else '' }}" data-i18n="nav_analytics">
+              📈 Demand & Weather
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="{{ url_for('schema') }}" class="nav-link {{ 'active' if request.endpoint == 'schema' else '' }}" data-i18n="nav_schema">
+              📐 DWDM Warehouse & Schema
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="{{ url_for('etl') }}" class="nav-link {{ 'active' if request.endpoint == 'etl' else '' }}" data-i18n="nav_etl">
+              ⚙️ ETL Pipeline & Quality
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="{{ url_for('olap') }}" class="nav-link {{ 'active' if request.endpoint == 'olap' else '' }}" data-i18n="nav_olap">
+              🧊 OLAP Cube
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="{{ url_for('organ_donation') }}" class="nav-link {{ 'active' if request.endpoint == 'organ_donation' else '' }}" data-i18n="nav_organ">
+              🫀 Organ Donation Awareness
+            </a>
+          </li>
+
+          {% if session.get('role') == 'pharmacy_owner' %}
+          <li class="nav-item nav-item-special">
+            <a href="{{ url_for('owner_dashboard') }}" class="nav-link nav-link-owner {{ 'active' if request.endpoint in ['owner_dashboard', 'owner_update_stock'] else '' }}">
+              📋 Owner Management
+            </a>
+          </li>
+          {% elif session.get('role') == 'hospital_staff' %}
+          <li class="nav-item nav-item-special">
+            <a href="{{ url_for('hospital_dashboard') }}" class="nav-link nav-link-hospital {{ 'active' if request.endpoint in ['hospital_dashboard', 'hospital_update_profile'] else '' }}">
+              🏥 Staff Management
+            </a>
+          </li>
+          {% endif %}
+        </ul>
+      </div>
+    </nav>
+    {% endif %}
+  </header>
+
+  <!-- FLASH MESSAGES -->
+  <main class="content-wrapper" id="main-content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-messages-container" role="alert">
+          {% for category, message in messages %}
+            <div class="flash-alert flash-{{ category }}">
+              <span class="flash-icon">
+                {% if category == 'success' %}✓{% elif category == 'danger' %}⚠{% else %}ℹ{% endif %}
+              </span>
+              <span class="flash-text">{{ message }}</span>
+              <button type="button" class="flash-close" onclick="this.parentElement.remove()" aria-label="Close notification">×</button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- FOOTER & MANDATORY EDUCATIONAL DISCLAIMER -->
+  <footer class="app-footer">
+    <div class="footer-container">
+      <div class="disclaimer-box">
+        <h3 class="disclaimer-title">⚠️ Mandatory Educational Project Disclaimer</h3>
+        <p class="disclaimer-text">
+          <strong>PharmaTrack DW</strong> is an educational computer science capstone project demonstrating
+          <strong>Data Warehousing and Data Mining (DWDM)</strong>, multidimensional OLAP schemas, and public health location intelligence.
+          It is <strong>not</strong> a medical diagnosis tool, not a guarantee of medicine stock or hospital capacity,
+          not a payment platform, not an ambulance dispatch service, and not an organ-donor matching system.
+          Never delay seeking professional medical treatment or calling official emergency numbers during medical crises.
+        </p>
+      </div>
+
+      <div class="footer-links-grid">
+        <div class="footer-col">
+          <h4>Official Emergency Numbers</h4>
+          <p>Tamil Nadu Ambulance: <a href="tel:108"><strong>108</strong> (TNHSP 108 EMS)</a></p>
+          <p>National Emergency: <a href="tel:112"><strong>112</strong> (ERSS National Helpline)</a></p>
+          <p>NOTTO Toll-Free Helpline: <a href="tel:1800114770"><strong>1800-11-4770</strong> (Organ Donation)</a></p>
+        </div>
+        <div class="footer-col">
+          <h4>Official Source Portals</h4>
+          <p><a href="https://tnhsp.org/pages/view/108_EMS" target="_blank" rel="noopener noreferrer">Tamil Nadu 108 Emergency Service ↗</a></p>
+          <p><a href="https://112.gov.in/about" target="_blank" rel="noopener noreferrer">India ERSS 112 Portal ↗</a></p>
+          <p><a href="https://notto.mohfw.gov.in/" target="_blank" rel="noopener noreferrer">NOTTO (MOHFW, Govt. of India) ↗</a></p>
+        </div>
+        <div class="footer-col">
+          <h4>Data Warehouse & Technology</h4>
+          <p>Engine: SQLite Local-First Data Warehouse (Star & Snowflake)</p>
+          <p>Data: Historical Sales Expiry Archive + NOTTO Registry</p>
+          <p>Status: Localhost Port 5000 | Educational Capstone</p>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% block extra_scripts %}{% endblock %}
+
+</body>
+</html>

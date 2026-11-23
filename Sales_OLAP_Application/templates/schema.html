@@ -1,0 +1,1208 @@
+{% extends "base.html" %}
+
+{% block title %}DWDM Data Warehouse Architecture - Star vs Snowflake Schema{% endblock %}
+
+{% block extra_head %}
+<style>
+/* =========================================================
+   SCHEMA PAGE — self-contained styles (no dependency on
+   any .canvas-grid-* class from style.css)
+   ========================================================= */
+
+/* ---- Page layout ---- */
+.schema-control-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 14px 20px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.schema-toggle-group { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.toggle-label { font-weight: 600; font-size: 14px; color: #475569; }
+
+.btn-group-toggle { display: flex; border-radius: 8px; overflow: hidden; border: 1.5px solid #2563eb; }
+.btn-schema-toggle {
+  padding: 9px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: #fff;
+  color: #2563eb;
+  transition: background 0.18s, color 0.18s;
+}
+.btn-schema-toggle.active { background: #2563eb; color: #fff; }
+.btn-schema-toggle:not(.active):hover { background: #eff6ff; }
+
+.schema-stats-badge { display: flex; gap: 18px; font-size: 13px; color: #64748b; }
+
+/* ---- Explanation cards ---- */
+.schema-comparison-card {
+  background: #fff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+}
+.comparison-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 700px) { .comparison-grid { grid-template-columns: 1fr; } }
+.comp-col { padding: 16px; border-radius: 8px; border: 2px solid #e2e8f0; transition: border-color 0.2s; }
+.comp-header { margin-bottom: 10px; }
+.comp-header h3 { margin: 0 0 4px; font-size: 16px; }
+.badge-tag { font-size: 11px; background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 20px; }
+.comp-col p { font-size: 13px; color: #475569; line-height: 1.6; margin: 8px 0; }
+.comp-points { font-size: 13px; color: #334155; line-height: 1.65; padding-left: 20px; }
+
+/* ---- Diagram outer card ---- */
+.diagram-card {
+  background: #fff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.diagram-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 16px 22px 14px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+.diagram-header h3 { margin: 0 0 2px; font-size: 16px; }
+.diagram-hint { font-size: 12px; color: #94a3b8; }
+.legend-keys { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+/* ---- Schema diagram container (holds both SVG + cards) ---- */
+.schema-diagram-container {
+  position: relative;
+  overflow: auto;
+  min-height: 420px;
+  padding: 24px;
+  background: #f8fafc;
+}
+
+/* ---- SVG overlay (must NOT intercept pointer events) ---- */
+.schema-svg-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 10;
+}
+
+/* ---- Schema canvas (wrapper for the grid inside each view) ---- */
+.schema-canvas { position: relative; }
+
+/* ===== STAR SCHEMA GRID =====
+   3-column: left-dims | facts | right-dims
+   Facts in center, dimensions flanking */
+.star-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr 220px;
+  gap: 20px;
+  align-items: start;
+}
+.star-left-col,
+.star-right-col { display: flex; flex-direction: column; gap: 16px; }
+.star-center-col { display: flex; flex-direction: column; gap: 18px; }
+
+/* ===== SNOWFLAKE SCHEMA GRID =====
+   3-column clusters */
+.snowflake-layout {
+  display: grid;
+  grid-template-columns: 230px 1fr 260px;
+  gap: 20px;
+  align-items: start;
+}
+.snow-col { display: flex; flex-direction: column; gap: 14px; }
+
+/* ---- Cluster boxes in snowflake ---- */
+.snowflake-cluster-box {
+  background: #f0fdf4;
+  border: 2px solid #6ee7b7;
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.snowflake-cluster-box.fact-cluster {
+  background: #f0f9ff;
+  border-color: #0d9488;
+  border-style: dashed;
+}
+.snowflake-cluster-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #0f766e;
+  margin-bottom: 4px;
+}
+
+/* ---- Table entity cards ---- */
+.schema-entity {
+  background: #fff;
+  border-radius: 8px;
+  border: 1.5px solid #e2e8f0;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  overflow: hidden;
+  font-size: 12px;
+  min-width: 180px;
+}
+.entity-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.entity-fact .entity-head { background: #eff6ff; color: #1d4ed8; }
+.entity-dim  .entity-head { background: #f0fdf4; color: #15803d; }
+.entity-subdim .entity-head { background: #fefce8; color: #a16207; }
+
+.entity-rows { font-size: 10px; font-weight: 400; opacity: 0.75; text-transform: none; }
+.entity-name { margin: 0; padding: 6px 10px 4px; font-size: 13px; font-weight: 700; color: #1e293b; border-bottom: 1px solid #f1f5f9; }
+.entity-fields { padding: 6px 10px 8px; display: flex; flex-direction: column; gap: 3px; color: #475569; }
+
+/* ---- Field anchor rows (FK / PK / Measure) ---- */
+.field-anchor {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.field-anchor.pk { background: #fef9c3; color: #854d0e; }
+.field-anchor.fk { background: #eff6ff; color: #1d4ed8; }
+.field-anchor.measure { background: #f0fdf4; color: #166534; font-style: italic; }
+
+.anchor-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.anchor-dot.pk { background: #eab308; }
+.anchor-dot.fk { background: #3b82f6; }
+
+/* ---- Grain badge ---- */
+.grain-box {
+  margin: 0 10px 6px;
+  padding: 4px 8px;
+  background: #f8fafc;
+  border-left: 3px solid #2563eb;
+  border-radius: 0 4px 4px 0;
+  font-size: 11px;
+  color: #475569;
+}
+
+/* ---- Schema view explanation banners ---- */
+.schema-view-banner {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.schema-view-banner.star-banner {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+.schema-view-banner.snow-banner {
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  color: #0f766e;
+}
+
+/* ---- SVG connector line classes ---- */
+.connector-line-star { stroke: #2563eb; stroke-width: 2; fill: none; }
+.connector-line-snowflake { stroke: #0d9488; stroke-width: 2; fill: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  
+  <div class="page-header">
+    <div class="page-header-text">
+      <h2>📐 DWDM Data Warehouse Architecture &amp; Schema Visualizer</h2>
+      <p>Interactive multidimensional architectural viewer comparing Star Schema (denormalized high-speed OLAP) and Snowflake Schema (normalized 3NF) designs in SQLite.</p>
+    </div>
+    <div class="page-header-badge">
+      <span class="badge badge-schema">Data Warehousing &amp; Data Mining</span>
+    </div>
+  </div>
+
+  <!-- SCHEMA TOGGLE SWITCH & LIVE STATS -->
+  <div class="schema-control-bar">
+    <div class="schema-toggle-group">
+      <span class="toggle-label">Active Schema Paradigm:</span>
+      <div class="btn-group-toggle" role="group">
+        <button type="button" class="btn-schema-toggle active" id="btn-star" onclick="switchSchema('star')">
+          ⭐ Star Schema (Denormalized)
+        </button>
+        <button type="button" class="btn-schema-toggle" id="btn-snowflake" onclick="switchSchema('snowflake')">
+          ❄️ Snowflake Schema (Normalized 3NF)
+        </button>
+      </div>
+    </div>
+    <div class="schema-stats-badge">
+      <span>Warehouse DB: <strong>pharmatrack_dw.sqlite</strong></span>
+      <span>Fact Records: <strong>{{ "{:,}".format(counts.fact_sales_expiry + counts.fact_weather_observation + counts.fact_availability_snapshot + counts.fact_hospital_service) }}</strong></span>
+    </div>
+  </div>
+
+  <!-- PLAIN LANGUAGE EDUCATIONAL COMPARISON BOX -->
+  <div class="schema-comparison-card" id="comparison-box">
+    <div class="comparison-grid">
+      <div class="comp-col" id="comp-star">
+        <div class="comp-header">
+          <h3>⭐ Star Schema Architecture</h3>
+          <span class="badge-tag">Fast Analytical Query Performance</span>
+        </div>
+        <p>
+          In a <strong>Star Schema</strong>, central fact tables connect directly to denormalized dimension tables via single-hop foreign keys.
+          Descriptive attributes (such as category names or state codes) are embedded inside dimension records to eliminate complex multi-table joins and maximize OLAP aggregation speed.
+        </p>
+        <ul class="comp-points">
+          <li><strong>Grains:</strong> 1 record per sales order; 1 per weather observation; 1 per pharmacy stock snapshot; 1 per hospital service report.</li>
+          <li><strong>Structure:</strong> Single-hop FK → PK joins (Fact → Dimension only).</li>
+          <li><strong>Advantage:</strong> Simpler analytical SQL, faster aggregations, easier indexing.</li>
+          <li><strong>Trade-off:</strong> Data redundancy in dimension tables (repeated category/state text).</li>
+        </ul>
+      </div>
+
+      <div class="comp-col" id="comp-snowflake">
+        <div class="comp-header">
+          <h3>❄️ Snowflake Schema Architecture</h3>
+          <span class="badge-tag">Normalized Hierarchies (Third Normal Form)</span>
+        </div>
+        <p>
+          In a <strong>Snowflake Schema</strong>, dimension tables are normalized into related sub-dimension tables.
+          Dimensional hierarchies branch outward like ice crystals, enforcing referential integrity and eliminating data redundancy.
+        </p>
+        <ul class="comp-points">
+          <li><strong>Normalized Hierarchies:</strong>
+            <code>dim_category</code> &amp; <code>dim_dosage_form</code> → <code>dim_product</code>;
+            <code>dim_state</code> → <code>dim_district</code> → <code>dim_city</code> → <code>dim_pharmacy</code> &amp; <code>dim_hospital</code>.
+          </li>
+          <li><strong>Structure:</strong> Multi-hop FK relationships forming normalized trees.</li>
+          <li><strong>Advantage:</strong> Zero storage redundancy, centralized master data management.</li>
+          <li><strong>Trade-off:</strong> Requires multi-table <code>JOIN</code> operations for analytical reporting.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- INTERACTIVE DIAGRAM VIEWPORT WITH DYNAMIC SVG CONNECTORS -->
+  <div class="diagram-card">
+    <div class="diagram-header">
+      <div>
+        <h3 id="diagram-title">Multidimensional Star Schema Architecture</h3>
+        <span class="diagram-hint">SVG connector lines link FK fields to their PK targets. Lines redraw on resize and tab switch.</span>
+      </div>
+      <div class="legend-keys">
+        <span class="field-anchor pk" style="display:inline-flex; padding:2px 8px; font-size:11px;">🔑 PK Primary Key</span>
+        <span class="field-anchor fk" style="display:inline-flex; padding:2px 8px; font-size:11px;">🔗 FK Foreign Key</span>
+        <span class="field-anchor measure" style="display:inline-flex; padding:2px 8px; font-size:11px;">📊 Additive Measure</span>
+      </div>
+    </div>
+
+    <!-- CANVAS CONTAINER WITH RELATIVE POSITION FOR SVG OVERLAY -->
+    <div class="schema-diagram-container" id="schema-container">
+      
+      <!-- DYNAMIC SVG CONNECTOR OVERLAY -->
+      <svg id="schema-svg" class="schema-svg-overlay" style="position:absolute;top:0;left:0;pointer-events:none;overflow:visible;z-index:10;">
+        <defs>
+          <marker id="arrow-star" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="#2563eb" />
+          </marker>
+          <marker id="arrow-snowflake" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="#0d9488" />
+          </marker>
+        </defs>
+        <!-- Connector paths dynamically injected by JavaScript -->
+        <g id="svg-paths-group"></g>
+      </svg>
+
+      <!-- ================================================================= -->
+      <!-- VIEW 1: STAR SCHEMA DIAGRAM                                        -->
+      <!-- ================================================================= -->
+      <div id="star-diagram" class="schema-canvas">
+
+        <!-- Plain-English view banner -->
+        <div class="schema-view-banner star-banner">
+          <strong>⭐ Star Schema View:</strong> Each fact table sits at the center. Dimension tables surround it like points of a star.
+          Foreign keys in the fact table point directly to the primary key of each dimension — single-hop joins only.
+          Dimension tables store denormalized attributes (e.g. category name text lives inside <em>dim_product</em>).
+        </div>
+
+        <!-- 3-column star grid -->
+        <div class="star-layout">
+
+          <!-- LEFT COLUMN: DIMENSIONS (product, pharmacy, hospital) -->
+          <div class="star-left-col">
+
+            <!-- dim_product -->
+            <div class="schema-entity entity-dim" id="card-dim-product">
+              <div class="entity-head">
+                <span class="entity-type">DIMENSION</span>
+                <span class="entity-rows">{{ counts.dim_product }} rows</span>
+              </div>
+              <h4 class="entity-name">dim_product</h4>
+              <div class="entity-fields">
+                <div class="field-anchor pk" id="star-pk-product">
+                  <span>🔑 product_key</span>
+                  <span class="anchor-dot pk"></span>
+                </div>
+                <div>drug_name [TEXT]</div>
+                <div>active_ingredient [TEXT]</div>
+                <div>category [TEXT]</div>
+                <div>brand_examples [TEXT]</div>
+                <div>standard_strength [TEXT]</div>
+                <div>dosage_form [TEXT]</div>
+                <div>schedule_type [TEXT]</div>
+              </div>
+            </div>
+
+            <!-- dim_pharmacy -->
+            <div class="schema-entity entity-dim" id="card-dim-pharmacy">
+              <div class="entity-head">
+                <span class="entity-type">DIMENSION</span>
+                <span class="entity-rows">{{ counts.dim_pharmacy }} rows</span>
+              </div>
+              <h4 class="entity-name">dim_pharmacy</h4>
+              <div class="entity-fields">
+                <div class="field-anchor pk" id="star-pk-pharmacy">
+                  <span>🔑 pharmacy_key</span>
+                  <span class="anchor-dot pk"></span>
+                </div>
+                <div>name [TEXT]</div>
+                <div>chain [TEXT]</div>
+                <div>address [TEXT]</div>
+                <div>city [TEXT], pincode [TEXT]</div>
+                <div>phone [TEXT], hours [TEXT]</div>
+                <div>latitude, longitude [REAL]</div>
+              </div>
+            </div>
+
+            <!-- dim_hospital -->
+            <div class="schema-entity entity-dim" id="card-dim-hospital">
+              <div class="entity-head">
+                <span class="entity-type">DIMENSION</span>
+                <span class="entity-rows">{{ counts.dim_hospital }} rows</span>
+              </div>
+              <h4 class="entity-name">dim_hospital</h4>
+              <div class="entity-fields">
+                <div class="field-anchor pk" id="star-pk-hospital">
+                  <span>🔑 hospital_key</span>
+                  <span class="anchor-dot pk"></span>
+                </div>
+                <div>name [TEXT]</div>
+                <div>hospital_type [TEXT]</div>
+                <div>emergency_helpline [TEXT]</div>
+                <div>has_emergency [INT]</div>
+                <div>has_icu [INT]</div>
+                <div>latitude, longitude [REAL]</div>
+              </div>
+            </div>
+
+          </div><!-- /star-left-col -->
+
+          <!-- CENTER COLUMN: FACT TABLES -->
+          <div class="star-center-col">
+
+            <!-- fact_sales_expiry -->
+            <div class="schema-entity entity-fact" id="card-fact-sales">
+              <div class="entity-head">
+                <span class="entity-type">TRANSACTION FACT</span>
+                <span class="entity-rows">{{ counts.fact_sales_expiry }} rows</span>
+              </div>
+              <h4 class="entity-name">fact_sales_expiry</h4>
+              <div class="grain-box"><strong>Grain:</strong> 1 row per sales order transaction</div>
+              <div class="entity-fields">
+                <div class="field-anchor pk">
+                  <span>🔑 order_id (PK)</span>
+                </div>
+                <div class="field-anchor fk" id="star-fk-sales-date">
+                  <span>🔗 date_key → dim_date</span>
+                  <span class="anchor-dot fk"></span>
+                </div>
+                <div class="field-anchor fk" id="star-fk-sales-prod">
+                  <span>🔗 product_key → dim_product</span>
+                  <span class="anchor-dot fk"></span>
+                </div>
+                <div class="field-anchor fk" id="star-fk-sales-reg">
+                  <span>🔗 region_key → dim_region</span>
+                  <span class="anchor-dot fk"></span>
+                </div>
+                <div>distributor_name [TEXT]</div>
+                <div class="field-anchor measure">📊 quantity [INTEGER]</div>
+                <div class="field-anchor measure">📊 unit_price [REAL]</div>
+                <div class="field-anchor measure">📊 total_sales [REAL]</div>
+                <div>expiry_days_left [INT]</div>
+                <div>expired_stock_flag [TEXT]</div>
+              </div>
+            </div>
+
+            <!-- fact_weather_observation -->
+            <div class="schema-entity entity-fact" id="card-fact-weather">
+              <div class="entity-head">
+                <span class="entity-type">ANALYTICAL FACT</span>
+                <span class="entity-rows">{{ counts.fact_weather_observation }} rows</span>
+              </div>
+              <h4 class="entity-name">fact_weather_observation</h4>
+              <div class="grain-box"><strong>Grain:</strong> 1 reading per region per calendar date</div>
+              <div class="entity-fields">
+                <div class="field-anchor pk">
+                  <span>🔑 obs_id (PK)</span>
+                </div>
+                <div class="field-anchor fk" id="star-fk-weather-date">
+                  <span>🔗 date_key → dim_date</span>
+                  <span class="anchor-dot fk"></span>
+                </div>
+                <div class="field-anchor fk" id="star-fk-weather-reg">
+                  <span>🔗 region_key → dim_region</span>
+                  <span class="anchor-dot fk"></span>
+                </div>
+                <div class="field-anchor fk" id="star-fk-weather-cond">
+                  <span>🔗 weather_key → dim_weather</span>
+                  <span class="anchor-dot fk"></span>
+                </div>
+                <div class="field-anchor measure">📊 avg_temperature_c [REAL]</div>
+                <div class="field-anchor measure">📊 precipitation_mm [REAL]</div>
+              </div>
+            </div>
+
+            <!-- fact_availability_snapshot -->
+            <div class="schema-entity entity-fact" id="card-fact-avail">
+              <div class="entity-head">
+                <span class="entity-type">PERIODIC SNAPSHOT FACT</span>
+                <span class="entity-rows">{{ counts.fact_availability_snapshot }} rows</span>
+              </div>
+              <h4 class="entity-name">fact_availability_snapshot</h4>
+              <div class="grain-box"><strong>Grain:</strong> 1 inventory snapshot per pharmacy &amp; medicine per date</div>
+              <div class="entity-fields">
+                <div class="field-anchor pk">
+                  <span>🔑 snapshot_id (PK)</span>
+                </div>
+                <div class="field-anchor fk" id="star-fk-avail-date">
+                  <span>🔗 date_key → dim_date</span>
+                  <span class="anchor-dot fk"></span>
+                </div>
+                <div class="field-anchor fk" id="star-fk-avail-prod">
+                  <span>🔗 product_key → dim_product</span>
+                  <span class="anchor-dot fk"></span>
+                </div>
+                <div class="field-anchor fk" id="star-fk-avail-pharm">
+                  <span>🔗 pharmacy_key → dim_pharmacy</span>
+                  <span class="anchor-dot fk"></span>
+                </div>
+                <div class="field-anchor fk" id="star-fk-avail-reg">
+                  <span>🔗 region_key → dim_region</span>
+                  <span class="anchor-dot fk"></span>
+                </div>
+                <div class="field-anchor fk" id="star-fk-avail-stat">
+                  <span>🔗 status_key → dim_availability_status</span>
+                  <span class="anchor-dot fk"></span>
+                </div>
+                <div class="field-anchor measure">📊 stock_units_available [INT]</div>
+                <div class="field-anchor measure">📊 listed_price [REAL]</div>
+              </div>
+            </div>
+
+            <!-- fact_hospital_service -->
+            <div class="schema-entity entity-fact" id="card-fact-hosp">
+              <div class="entity-head">
+                <span class="entity-type">HOSPITAL SERVICE FACT</span>
+                <span class="entity-rows">{{ counts.fact_hospital_service }} rows</span>
+              </div>
+              <h4 class="entity-name">fact_hospital_service</h4>
+              <div class="grain-box"><strong>Grain:</strong> 1 capacity report per hospital per date</div>
+              <div class="entity-fields">
+                <div class="field-anchor pk">
+                  <span>🔑 service_fact_key (PK)</span>
+                </div>
+                <div class="field-anchor fk" id="star-fk-hosp-date">
+                  <span>🔗 date_key → dim_date</span>
+                  <span class="anchor-dot fk"></span>
+                </div>
+                <div class="field-anchor fk" id="star-fk-hosp-hosp">
+                  <span>🔗 hospital_key → dim_hospital</span>
+                  <span class="anchor-dot fk"></span>
+                </div>
+                <div class="field-anchor measure">📊 available_beds [INT]</div>
+                <div class="field-anchor measure">📊 icu_beds_available [INT]</div>
+                <div class="field-anchor measure">📊 emergency_response_min [REAL]</div>
+              </div>
+            </div>
+
+          </div><!-- /star-center-col -->
+
+          <!-- RIGHT COLUMN: CONFORMED + SHARED DIMENSIONS -->
+          <div class="star-right-col">
+
+            <!-- dim_date (conformed) -->
+            <div class="schema-entity entity-dim" id="card-dim-date">
+              <div class="entity-head">
+                <span class="entity-type">CONFORMED DIMENSION</span>
+                <span class="entity-rows">{{ counts.dim_date }} rows</span>
+              </div>
+              <h4 class="entity-name">dim_date</h4>
+              <div class="entity-fields">
+                <div class="field-anchor pk" id="star-pk-date">
+                  <span>🔑 date_key</span>
+                  <span class="anchor-dot pk"></span>
+                </div>
+                <div>full_date [DATE]</div>
+                <div>year [INT], quarter [TEXT]</div>
+                <div>month [INT], month_name [TEXT]</div>
+                <div>day [INT], day_name [TEXT]</div>
+              </div>
+            </div>
+
+            <!-- dim_region -->
+            <div class="schema-entity entity-dim" id="card-dim-region">
+              <div class="entity-head">
+                <span class="entity-type">DIMENSION</span>
+                <span class="entity-rows">{{ counts.dim_region }} rows</span>
+              </div>
+              <h4 class="entity-name">dim_region</h4>
+              <div class="entity-fields">
+                <div class="field-anchor pk" id="star-pk-region">
+                  <span>🔑 region_key</span>
+                  <span class="anchor-dot pk"></span>
+                </div>
+                <div>region_name [TEXT]</div>
+                <div>state_name [TEXT]</div>
+                <div>capital_city [TEXT]</div>
+              </div>
+            </div>
+
+            <!-- dim_weather -->
+            <div class="schema-entity entity-dim" id="card-dim-weather">
+              <div class="entity-head">
+                <span class="entity-type">DIMENSION</span>
+                <span class="entity-rows">{{ counts.dim_weather }} rows</span>
+              </div>
+              <h4 class="entity-name">dim_weather</h4>
+              <div class="entity-fields">
+                <div class="field-anchor pk" id="star-pk-weather">
+                  <span>🔑 weather_key</span>
+                  <span class="anchor-dot pk"></span>
+                </div>
+                <div>season [TEXT]</div>
+                <div>temp_category [TEXT]</div>
+                <div>rainfall_category [TEXT]</div>
+              </div>
+            </div>
+
+            <!-- dim_availability_status -->
+            <div class="schema-entity entity-dim" id="card-dim-status">
+              <div class="entity-head">
+                <span class="entity-type">DIMENSION</span>
+                <span class="entity-rows">{{ counts.dim_availability_status }} rows</span>
+              </div>
+              <h4 class="entity-name">dim_availability_status</h4>
+              <div class="entity-fields">
+                <div class="field-anchor pk" id="star-pk-status">
+                  <span>🔑 status_key</span>
+                  <span class="anchor-dot pk"></span>
+                </div>
+                <div>status_code [TEXT]</div>
+                <div>display_label [TEXT]</div>
+                <div>badge_class [TEXT]</div>
+              </div>
+            </div>
+
+          </div><!-- /star-right-col -->
+
+        </div><!-- /star-layout -->
+      </div><!-- /star-diagram -->
+
+
+      <!-- ================================================================= -->
+      <!-- VIEW 2: SNOWFLAKE SCHEMA DIAGRAM (3NF NORMALIZED HIERARCHIES)     -->
+      <!-- ================================================================= -->
+      <div id="snowflake-diagram" class="schema-canvas" style="display:none;">
+
+        <!-- Plain-English view banner -->
+        <div class="schema-view-banner snow-banner">
+          <strong>❄️ Snowflake Schema View:</strong> Dimension tables are normalized — repeated text strings are extracted into separate lookup tables (sub-dimensions).
+          For example, <em>dim_product</em> stores a foreign key to <em>dim_category</em> instead of repeating the category name.
+          Geography is a 3-level hierarchy: <em>dim_state → dim_district → dim_city</em>, and facilities (pharmacy, hospital) reference <em>dim_city</em>.
+          Only tables and relationships that exist in the actual database are shown.
+        </div>
+
+        <!-- 3-column snowflake layout -->
+        <div class="snowflake-layout">
+
+          <!-- LEFT CLUSTER: Product hierarchy -->
+          <div class="snow-col">
+            <div class="snowflake-cluster-box">
+              <div class="snowflake-cluster-title">Hierarchy: Therapeutic Product (3NF)</div>
+
+              <!-- dim_category (sub-dim level 1) -->
+              <div class="schema-entity entity-subdim">
+                <div class="entity-head">
+                  <span class="entity-type">SUB-DIM (L1)</span>
+                  <span class="entity-rows">{{ counts.dim_category }} rows</span>
+                </div>
+                <h4 class="entity-name">dim_category</h4>
+                <div class="entity-fields">
+                  <div class="field-anchor pk" id="snow-pk-category">
+                    <span>🔑 category_key</span>
+                    <span class="anchor-dot pk"></span>
+                  </div>
+                  <div>category_name [TEXT]</div>
+                  <div>description [TEXT]</div>
+                </div>
+              </div>
+
+              <!-- dim_dosage_form (sub-dim level 1) -->
+              <div class="schema-entity entity-subdim">
+                <div class="entity-head">
+                  <span class="entity-type">SUB-DIM (L1)</span>
+                  <span class="entity-rows">{{ counts.dim_dosage_form }} rows</span>
+                </div>
+                <h4 class="entity-name">dim_dosage_form</h4>
+                <div class="entity-fields">
+                  <div class="field-anchor pk" id="snow-pk-dosage">
+                    <span>🔑 dosage_form_key</span>
+                    <span class="anchor-dot pk"></span>
+                  </div>
+                  <div>dosage_form_name [TEXT]</div>
+                  <div>route_of_administration [TEXT]</div>
+                </div>
+              </div>
+
+              <!-- dim_product (normalized dimension referencing above) -->
+              <div class="schema-entity entity-dim">
+                <div class="entity-head">
+                  <span class="entity-type">NORMALIZED DIM (L2)</span>
+                  <span class="entity-rows">{{ counts.dim_product }} rows</span>
+                </div>
+                <h4 class="entity-name">dim_product</h4>
+                <div class="entity-fields">
+                  <div class="field-anchor pk" id="snow-pk-product">
+                    <span>🔑 product_key</span>
+                    <span class="anchor-dot pk"></span>
+                  </div>
+                  <div class="field-anchor fk" id="snow-fk-prod-cat">
+                    <span>🔗 category_key → dim_category</span>
+                    <span class="anchor-dot fk"></span>
+                  </div>
+                  <div class="field-anchor fk" id="snow-fk-prod-dose">
+                    <span>🔗 dosage_form_key → dim_dosage_form</span>
+                    <span class="anchor-dot fk"></span>
+                  </div>
+                  <div>drug_name [TEXT]</div>
+                  <div>active_ingredient [TEXT]</div>
+                  <div>brand_examples [TEXT]</div>
+                  <div>standard_strength [TEXT]</div>
+                </div>
+              </div>
+
+            </div><!-- /cluster product -->
+          </div><!-- /snow-col left -->
+
+          <!-- CENTER CLUSTER: Fact tables -->
+          <div class="snow-col">
+            <div class="snowflake-cluster-box fact-cluster">
+              <div class="snowflake-cluster-title">Normalized Fact Tables &amp; Measures</div>
+
+              <!-- fact_sales_expiry in Snowflake -->
+              <div class="schema-entity entity-fact">
+                <div class="entity-head">
+                  <span class="entity-type">TRANSACTION FACT</span>
+                  <span class="entity-rows">{{ counts.fact_sales_expiry }} rows</span>
+                </div>
+                <h4 class="entity-name">fact_sales_expiry</h4>
+                <div class="grain-box">Joins normalized dims via parent keys</div>
+                <div class="entity-fields">
+                  <div class="field-anchor pk">🔑 order_id (PK)</div>
+                  <div class="field-anchor fk" id="snow-fk-sales-prod">
+                    <span>🔗 product_key → dim_product</span>
+                    <span class="anchor-dot fk"></span>
+                  </div>
+                  <div class="field-anchor fk" id="snow-fk-sales-reg">
+                    <span>🔗 region_key → dim_region</span>
+                    <span class="anchor-dot fk"></span>
+                  </div>
+                  <div class="field-anchor fk" id="snow-fk-sales-date">
+                    <span>🔗 date_key → dim_date</span>
+                    <span class="anchor-dot fk"></span>
+                  </div>
+                  <div class="field-anchor measure">📊 quantity, total_sales, unit_price</div>
+                </div>
+              </div>
+
+              <!-- fact_availability_snapshot in Snowflake -->
+              <div class="schema-entity entity-fact">
+                <div class="entity-head">
+                  <span class="entity-type">SNAPSHOT FACT</span>
+                  <span class="entity-rows">{{ counts.fact_availability_snapshot }} rows</span>
+                </div>
+                <h4 class="entity-name">fact_availability_snapshot</h4>
+                <div class="entity-fields">
+                  <div class="field-anchor pk">🔑 snapshot_id (PK)</div>
+                  <div class="field-anchor fk" id="snow-fk-avail-pharm">
+                    <span>🔗 pharmacy_key → dim_pharmacy</span>
+                    <span class="anchor-dot fk"></span>
+                  </div>
+                  <div class="field-anchor fk" id="snow-fk-avail-prod">
+                    <span>🔗 product_key → dim_product</span>
+                    <span class="anchor-dot fk"></span>
+                  </div>
+                  <div class="field-anchor measure">📊 stock_units_available, listed_price</div>
+                </div>
+              </div>
+
+              <!-- fact_hospital_service in Snowflake -->
+              <div class="schema-entity entity-fact">
+                <div class="entity-head">
+                  <span class="entity-type">HOSPITAL SERVICE FACT</span>
+                  <span class="entity-rows">{{ counts.fact_hospital_service }} rows</span>
+                </div>
+                <h4 class="entity-name">fact_hospital_service</h4>
+                <div class="entity-fields">
+                  <div class="field-anchor pk">🔑 service_fact_key (PK)</div>
+                  <div class="field-anchor fk" id="snow-fk-hosp-hosp">
+                    <span>🔗 hospital_key → dim_hospital</span>
+                    <span class="anchor-dot fk"></span>
+                  </div>
+                  <div class="field-anchor measure">📊 available_beds, icu_beds</div>
+                </div>
+              </div>
+
+              <!-- Shared conformed dim_date -->
+              <div class="schema-entity entity-dim">
+                <div class="entity-head">
+                  <span class="entity-type">CONFORMED DIM</span>
+                  <span class="entity-rows">{{ counts.dim_date }} rows</span>
+                </div>
+                <h4 class="entity-name">dim_date</h4>
+                <div class="entity-fields">
+                  <div class="field-anchor pk" id="snow-pk-date">
+                    <span>🔑 date_key</span>
+                    <span class="anchor-dot pk"></span>
+                  </div>
+                  <div>full_date, year, quarter</div>
+                  <div>month, day, day_name</div>
+                </div>
+              </div>
+
+            </div><!-- /cluster facts -->
+          </div><!-- /snow-col center -->
+
+          <!-- RIGHT CLUSTER: Geographic hierarchy + Facilities -->
+          <div class="snow-col">
+            <div class="snowflake-cluster-box">
+              <div class="snowflake-cluster-title">Hierarchy: Geographic (State → District → City)</div>
+
+              <!-- dim_state (level 1 root) -->
+              <div class="schema-entity entity-subdim">
+                <div class="entity-head">
+                  <span class="entity-type">LEVEL 1: STATE</span>
+                  <span class="entity-rows">{{ counts.dim_state }} rows</span>
+                </div>
+                <h4 class="entity-name">dim_state</h4>
+                <div class="entity-fields">
+                  <div class="field-anchor pk" id="snow-pk-state">
+                    <span>🔑 state_key</span>
+                    <span class="anchor-dot pk"></span>
+                  </div>
+                  <div>state_name [TEXT]</div>
+                  <div>country [TEXT]</div>
+                </div>
+              </div>
+
+              <!-- dim_district (references dim_state) -->
+              <div class="schema-entity entity-subdim">
+                <div class="entity-head">
+                  <span class="entity-type">LEVEL 2: DISTRICT</span>
+                  <span class="entity-rows">{{ counts.dim_district }} rows</span>
+                </div>
+                <h4 class="entity-name">dim_district</h4>
+                <div class="entity-fields">
+                  <div class="field-anchor pk" id="snow-pk-district">
+                    <span>🔑 district_key</span>
+                    <span class="anchor-dot pk"></span>
+                  </div>
+                  <div class="field-anchor fk" id="snow-fk-dist-state">
+                    <span>🔗 state_key → dim_state</span>
+                    <span class="anchor-dot fk"></span>
+                  </div>
+                  <div>district_name [TEXT]</div>
+                </div>
+              </div>
+
+              <!-- dim_city (references dim_district) -->
+              <div class="schema-entity entity-subdim">
+                <div class="entity-head">
+                  <span class="entity-type">LEVEL 3: CITY</span>
+                  <span class="entity-rows">{{ counts.dim_city }} rows</span>
+                </div>
+                <h4 class="entity-name">dim_city</h4>
+                <div class="entity-fields">
+                  <div class="field-anchor pk" id="snow-pk-city">
+                    <span>🔑 city_key</span>
+                    <span class="anchor-dot pk"></span>
+                  </div>
+                  <div class="field-anchor fk" id="snow-fk-city-dist">
+                    <span>🔗 district_key → dim_district</span>
+                    <span class="anchor-dot fk"></span>
+                  </div>
+                  <div>city_name [TEXT]</div>
+                </div>
+              </div>
+
+              <!-- dim_region (standalone — no FK to city in DB) -->
+              <div class="schema-entity entity-dim">
+                <div class="entity-head">
+                  <span class="entity-type">REGIONAL DIM</span>
+                  <span class="entity-rows">{{ counts.dim_region }} rows</span>
+                </div>
+                <h4 class="entity-name">dim_region</h4>
+                <div class="entity-fields">
+                  <div class="field-anchor pk" id="snow-pk-region">
+                    <span>🔑 region_key</span>
+                    <span class="anchor-dot pk"></span>
+                  </div>
+                  <div>region_name [TEXT]</div>
+                  <div>state_name [TEXT]</div>
+                  <div>capital_city [TEXT]</div>
+                  <div style="font-size:10px;color:#94a3b8;font-style:italic;">← No city_key FK in DB</div>
+                </div>
+              </div>
+
+            </div><!-- /cluster geo -->
+
+            <!-- Facility sub-hierarchy -->
+            <div class="snowflake-cluster-box">
+              <div class="snowflake-cluster-title">Hierarchy: Facility (City → Pharmacy / Hospital)</div>
+
+              <!-- dim_pharmacy (references dim_city) -->
+              <div class="schema-entity entity-dim">
+                <div class="entity-head">
+                  <span class="entity-type">FACILITY DIM</span>
+                  <span class="entity-rows">{{ counts.dim_pharmacy }} rows</span>
+                </div>
+                <h4 class="entity-name">dim_pharmacy</h4>
+                <div class="entity-fields">
+                  <div class="field-anchor pk" id="snow-pk-pharmacy">
+                    <span>🔑 pharmacy_key</span>
+                    <span class="anchor-dot pk"></span>
+                  </div>
+                  <div class="field-anchor fk" id="snow-fk-pharm-city">
+                    <span>🔗 city_key → dim_city</span>
+                    <span class="anchor-dot fk"></span>
+                  </div>
+                  <div>name, chain, address, phone</div>
+                </div>
+              </div>
+
+              <!-- dim_hospital_type (sub-dim) -->
+              <div class="schema-entity entity-subdim">
+                <div class="entity-head">
+                  <span class="entity-type">FACILITY CLASSIFICATION</span>
+                  <span class="entity-rows">{{ counts.dim_hospital_type }} rows</span>
+                </div>
+                <h4 class="entity-name">dim_hospital_type</h4>
+                <div class="entity-fields">
+                  <div class="field-anchor pk" id="snow-pk-htype">
+                    <span>🔑 type_key</span>
+                    <span class="anchor-dot pk"></span>
+                  </div>
+                  <div>type_name [TEXT]</div>
+                  <div>description [TEXT]</div>
+                </div>
+              </div>
+
+              <!-- dim_hospital (references dim_hospital_type AND dim_city) -->
+              <div class="schema-entity entity-dim">
+                <div class="entity-head">
+                  <span class="entity-type">HOSPITAL DIM</span>
+                  <span class="entity-rows">{{ counts.dim_hospital }} rows</span>
+                </div>
+                <h4 class="entity-name">dim_hospital</h4>
+                <div class="entity-fields">
+                  <div class="field-anchor pk" id="snow-pk-hospital">
+                    <span>🔑 hospital_key</span>
+                    <span class="anchor-dot pk"></span>
+                  </div>
+                  <div class="field-anchor fk" id="snow-fk-hosp-htype">
+                    <span>🔗 type_key → dim_hospital_type</span>
+                    <span class="anchor-dot fk"></span>
+                  </div>
+                  <div class="field-anchor fk" id="snow-fk-hosp-city">
+                    <span>🔗 city_key → dim_city</span>
+                    <span class="anchor-dot fk"></span>
+                  </div>
+                  <div>name, emergency_helpline</div>
+                </div>
+              </div>
+
+            </div><!-- /cluster facility -->
+          </div><!-- /snow-col right -->
+
+        </div><!-- /snowflake-layout -->
+      </div><!-- /snowflake-diagram -->
+
+    </div><!-- /schema-diagram-container -->
+  </div><!-- /diagram-card -->
+
+</div><!-- /page-container -->
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  'use strict';
+
+  let currentSchema = 'star';
+
+  // ---- Relationship definitions (FK element id → PK element id) ----
+  // Only FKs that ACTUALLY EXIST in pharmatrack_dw.sqlite are listed.
+
+  const starRelationships = [
+    // fact_sales_expiry → dim_date, dim_product, dim_region
+    { from: 'star-fk-sales-date',    to: 'star-pk-date',     cardinality: 'N : 1' },
+    { from: 'star-fk-sales-prod',    to: 'star-pk-product',  cardinality: 'N : 1' },
+    { from: 'star-fk-sales-reg',     to: 'star-pk-region',   cardinality: 'N : 1' },
+
+    // fact_weather_observation → dim_date, dim_region, dim_weather
+    { from: 'star-fk-weather-date',  to: 'star-pk-date',     cardinality: 'N : 1' },
+    { from: 'star-fk-weather-reg',   to: 'star-pk-region',   cardinality: 'N : 1' },
+    { from: 'star-fk-weather-cond',  to: 'star-pk-weather',  cardinality: 'N : 1' },
+
+    // fact_availability_snapshot → dim_date, dim_product, dim_pharmacy, dim_region, dim_availability_status
+    { from: 'star-fk-avail-date',    to: 'star-pk-date',     cardinality: 'N : 1' },
+    { from: 'star-fk-avail-prod',    to: 'star-pk-product',  cardinality: 'N : 1' },
+    { from: 'star-fk-avail-pharm',   to: 'star-pk-pharmacy', cardinality: 'N : 1' },
+    { from: 'star-fk-avail-reg',     to: 'star-pk-region',   cardinality: 'N : 1' },
+    { from: 'star-fk-avail-stat',    to: 'star-pk-status',   cardinality: 'N : 1' },
+
+    // fact_hospital_service → dim_date, dim_hospital
+    { from: 'star-fk-hosp-date',     to: 'star-pk-date',     cardinality: 'N : 1' },
+    { from: 'star-fk-hosp-hosp',     to: 'star-pk-hospital', cardinality: 'N : 1' }
+  ];
+
+  const snowflakeRelationships = [
+    // Product hierarchy
+    { from: 'snow-fk-prod-cat',      to: 'snow-pk-category',  cardinality: 'N : 1' },
+    { from: 'snow-fk-prod-dose',     to: 'snow-pk-dosage',    cardinality: 'N : 1' },
+
+    // Fact → dim_product
+    { from: 'snow-fk-sales-prod',    to: 'snow-pk-product',   cardinality: 'N : 1' },
+    { from: 'snow-fk-avail-prod',    to: 'snow-pk-product',   cardinality: 'N : 1' },
+
+    // Fact → dim_region (standalone – no FK chain to city in DB)
+    { from: 'snow-fk-sales-reg',     to: 'snow-pk-region',    cardinality: 'N : 1' },
+
+    // Fact → dim_date (conformed)
+    { from: 'snow-fk-sales-date',    to: 'snow-pk-date',      cardinality: 'N : 1' },
+
+    // Fact → dim_pharmacy, dim_hospital
+    { from: 'snow-fk-avail-pharm',   to: 'snow-pk-pharmacy',  cardinality: 'N : 1' },
+    { from: 'snow-fk-hosp-hosp',     to: 'snow-pk-hospital',  cardinality: 'N : 1' },
+
+    // Geographic hierarchy: state → district → city
+    { from: 'snow-fk-dist-state',    to: 'snow-pk-state',     cardinality: 'N : 1' },
+    { from: 'snow-fk-city-dist',     to: 'snow-pk-district',  cardinality: 'N : 1' },
+
+    // Facilities → city (actual FK in DB)
+    { from: 'snow-fk-pharm-city',    to: 'snow-pk-city',      cardinality: 'N : 1' },
+    { from: 'snow-fk-hosp-city',     to: 'snow-pk-city',      cardinality: 'N : 1' },
+
+    // Hospital → hospital_type
+    { from: 'snow-fk-hosp-htype',    to: 'snow-pk-htype',     cardinality: 'N : 1' }
+  ];
+
+  // ---- SVG line drawing ----
+  function drawRelationshipLines() {
+    const container = document.getElementById('schema-container');
+    const svg       = document.getElementById('schema-svg');
+    const svgGroup  = document.getElementById('svg-paths-group');
+    if (!container || !svg || !svgGroup) return;
+
+    svgGroup.innerHTML = '';
+
+    // Size SVG to match full scroll dimensions
+    const w = Math.max(container.scrollWidth, container.clientWidth, 100);
+    const h = Math.max(container.scrollHeight, container.clientHeight, 100);
+    svg.setAttribute('width',   w);
+    svg.setAttribute('height',  h);
+    svg.style.width  = w + 'px';
+    svg.style.height = h + 'px';
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+
+    const containerRect = container.getBoundingClientRect();
+    // Adjust for scroll offset inside the container
+    const scrollLeft = container.scrollLeft;
+    const scrollTop  = container.scrollTop;
+
+    const relations   = (currentSchema === 'star') ? starRelationships : snowflakeRelationships;
+    const strokeColor = (currentSchema === 'star') ? '#2563eb' : '#0d9488';
+    const markerId    = (currentSchema === 'star') ? 'url(#arrow-star)' : 'url(#arrow-snowflake)';
+
+    relations.forEach(rel => {
+      const fromEl = document.getElementById(rel.from);
+      const toEl   = document.getElementById(rel.to);
+      if (!fromEl || !toEl) return;
+
+      const r1 = fromEl.getBoundingClientRect();
+      const r2 = toEl.getBoundingClientRect();
+
+      // Skip invisible elements
+      if (r1.width === 0 || r2.width === 0) return;
+
+      // Convert viewport coords → container-relative coords (accounting for scroll)
+      const toContainerX = (val) => val - containerRect.left + scrollLeft;
+      const toContainerY = (val) => val - containerRect.top  + scrollTop;
+
+      const c1x = (r1.left + r1.right)  / 2;
+      const c1y = (r1.top  + r1.bottom) / 2;
+      const c2x = (r2.left + r2.right)  / 2;
+      const c2y = (r2.top  + r2.bottom) / 2;
+
+      const dx = c2x - c1x;
+      const dy = c2y - c1y;
+
+      let x1, y1, x2, y2, cx1, cy1, cx2, cy2;
+
+      if (Math.abs(dx) >= Math.abs(dy) * 0.5) {
+        // Primarily horizontal — exit/enter left/right card edges
+        if (dx >= 0) {
+          x1 = toContainerX(r1.right);
+          x2 = toContainerX(r2.left);
+        } else {
+          x1 = toContainerX(r1.left);
+          x2 = toContainerX(r2.right);
+        }
+        y1 = toContainerY(c1y);
+        y2 = toContainerY(c2y);
+
+        const cv = Math.min(Math.abs(x2 - x1) * 0.4, 120);
+        cx1 = dx >= 0 ? x1 + cv : x1 - cv;
+        cy1 = y1;
+        cx2 = dx >= 0 ? x2 - cv : x2 + cv;
+        cy2 = y2;
+      } else {
+        // Primarily vertical — exit/enter top/bottom card edges
+        if (dy >= 0) {
+          y1 = toContainerY(r1.bottom);
+          y2 = toContainerY(r2.top);
+        } else {
+          y1 = toContainerY(r1.top);
+          y2 = toContainerY(r2.bottom);
+        }
+        x1 = toContainerX(c1x);
+        x2 = toContainerX(c2x);
+
+        const cv = Math.min(Math.abs(y2 - y1) * 0.4, 80);
+        cx1 = x1;
+        cy1 = dy >= 0 ? y1 + cv : y1 - cv;
+        cx2 = x2;
+        cy2 = dy >= 0 ? y2 - cv : y2 + cv;
+      }
+
+      const pathData = `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`;
+
+      // Draw bezier path
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', pathData);
+      path.setAttribute('stroke', strokeColor);
+      path.setAttribute('stroke-width', '2');
+      path.setAttribute('fill', 'none');
+      path.setAttribute('marker-end', markerId);
+      path.setAttribute('stroke-dasharray', currentSchema === 'snowflake' ? '0' : '0');
+      svgGroup.appendChild(path);
+
+      // Midpoint cardinality badge (Bezier at t=0.5)
+      const t = 0.5;
+      const midX = (1-t)**3 * x1 + 3*(1-t)**2 * t * cx1 + 3*(1-t) * t**2 * cx2 + t**3 * x2;
+      const midY = (1-t)**3 * y1 + 3*(1-t)**2 * t * cy1 + 3*(1-t) * t**2 * cy2 + t**3 * y2;
+
+      const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bgRect.setAttribute('x', midX - 20);
+      bgRect.setAttribute('y', midY - 10);
+      bgRect.setAttribute('width',  40);
+      bgRect.setAttribute('height', 20);
+      bgRect.setAttribute('rx', 4);
+      bgRect.setAttribute('fill', '#ffffff');
+      bgRect.setAttribute('stroke', strokeColor);
+      bgRect.setAttribute('stroke-width', '1.5');
+      svgGroup.appendChild(bgRect);
+
+      const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      lbl.setAttribute('x', midX);
+      lbl.setAttribute('y', midY + 4);
+      lbl.setAttribute('text-anchor', 'middle');
+      lbl.setAttribute('font-size', '10px');
+      lbl.setAttribute('font-weight', '700');
+      lbl.setAttribute('fill', strokeColor);
+      lbl.textContent = rel.cardinality;
+      svgGroup.appendChild(lbl);
+    });
+  }
+
+  // ---- Schema toggle ----
+  function switchSchema(mode) {
+    currentSchema = mode;
+
+    const starDiag  = document.getElementById('star-diagram');
+    const snowDiag  = document.getElementById('snowflake-diagram');
+    const btnStar   = document.getElementById('btn-star');
+    const btnSnow   = document.getElementById('btn-snowflake');
+    const diagTitle = document.getElementById('diagram-title');
+    const compStar  = document.getElementById('comp-star');
+    const compSnow  = document.getElementById('comp-snowflake');
+
+    if (mode === 'star') {
+      starDiag.style.display = 'block';
+      snowDiag.style.display = 'none';
+      btnStar.classList.add('active');
+      btnSnow.classList.remove('active');
+      diagTitle.textContent = 'Multidimensional Star Schema Architecture';
+      if (compStar) compStar.style.borderColor = '#2563eb';
+      if (compSnow) compSnow.style.borderColor = '#cbd5e1';
+    } else {
+      starDiag.style.display = 'none';
+      snowDiag.style.display = 'block';
+      btnStar.classList.remove('active');
+      btnSnow.classList.add('active');
+      diagTitle.textContent = 'Normalized Snowflake Schema Architecture (3NF Hierarchies)';
+      if (compStar) compStar.style.borderColor = '#cbd5e1';
+      if (compSnow) compSnow.style.borderColor = '#0d9488';
+    }
+
+    // Allow layout to paint before measuring element positions
+    requestAnimationFrame(() => setTimeout(drawRelationshipLines, 80));
+  }
+
+  // ---- Resize handler ----
+  window.addEventListener('resize', () => requestAnimationFrame(drawRelationshipLines));
+
+  // ---- Boot ----
+  document.addEventListener('DOMContentLoaded', () => {
+    switchSchema('star');
+
+    // ResizeObserver keeps lines correct if container changes
+    const container = document.getElementById('schema-container');
+    if (window.ResizeObserver && container) {
+      new ResizeObserver(() => requestAnimationFrame(drawRelationshipLines)).observe(container);
+    }
+  });
+</script>
+{% endblock %}

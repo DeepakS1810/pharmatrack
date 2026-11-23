@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+{% block title %}Hospital Finder & Emergency Healthcare Services{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  
+  <div class="page-header">
+    <div class="page-header-text">
+      <h2>🚑 Hospital Finder & Healthcare Facility Directory</h2>
+      <p>Search live OpenStreetMap community records for nearby hospitals and healthcare facilities across India from any typed address or GPS location, with directions in both Google Maps and OpenStreetMap.</p>
+    </div>
+    <div class="page-header-badge">
+      <span class="badge badge-directory">OpenStreetMap + PharmaTrack Directory</span>
+    </div>
+  </div>
+
+  <!-- CAPACITY & APPOINTMENT ADVISORY -->
+  <div class="alert-box alert-hospital-notice">
+    <div class="alert-icon">⚠️</div>
+    <div class="alert-body">
+      <strong>Real-Time Capacity Disclaimer:</strong>
+      An OpenStreetMap or project-directory listing does <strong>not independently verify accreditation</strong> and does not guarantee live bed availability, ICU capacity, emergency intake, specific doctor duty, or walk-in appointment access today.
+      For critical life-threatening emergencies, dial <strong>108</strong> (Tamil Nadu Ambulance) or <strong>112</strong> (All India ERSS) or telephone the casualty helpline directly in advance.
+    </div>
+  </div>
+
+  <!-- SEARCH & FILTER CONTROLS -->
+  <div class="search-panel-card">
+    <form action="{{ url_for('hospitals') }}" method="GET" class="hospital-search-form" id="hospital-form">
+      <div class="hospital-search-row">
+        
+        <div class="search-input-group locality-group">
+          <label for="locality-input-hosp" class="form-label">
+            <strong>Search Near Any Locality, City, or Postal Code:</strong>
+          </label>
+          <div class="input-with-actions">
+            <input 
+              type="text" 
+              id="locality-input-hosp" 
+              name="location" 
+              class="form-control" 
+              placeholder="e.g. Ayapakkam, Ambattur, Chennai, New Delhi, 110001, 560034..." 
+              value="{{ selected_location }}"
+              autocomplete="off"
+            >
+            <button type="button" id="btn-device-loc-hosp" class="btn-device-locate" title="Use current device GPS location">
+              📍 Near Me
+            </button>
+          </div>
+          <span class="form-hint">Type any place name or postal code across India (geocoded on submit via OpenStreetMap Nominatim), or tap Near Me for device GPS. Typing clears prior coordinates.</span>
+        </div>
+
+        <div class="search-input-group filter-group">
+          <label for="hospital-radius" class="form-label">OpenStreetMap Search Radius:</label>
+          <select id="hospital-radius" name="radius" class="form-control" onchange="this.form.submit()">
+            {% for radius in [5000, 10000, 25000] %}
+              <option value="{{ radius }}" {{ 'selected' if selected_radius_meters == radius else '' }}>{{ radius // 1000 }} km</option>
+            {% endfor %}
+          </select>
+          <span class="form-hint">Boundary distance around your search point for community facilities.</span>
+        </div>
+
+        <div class="search-input-group filter-group">
+          <label for="hosp-type-select" class="form-label">Project Directory Management Type:</label>
+          <select id="hosp-type-select" name="type" class="form-control" onchange="this.form.submit()">
+            <option value="">All Hospital Types</option>
+            {% for t in hospital_types %}
+              <option value="{{ t }}" {{ 'selected' if selected_type == t else '' }}>{{ t }}</option>
+            {% endfor %}
+          </select>
+          <span class="form-hint">Applies to the local PharmaTrack verified hospital directory below.</span>
+        </div>
+
+        <input type="hidden" id="input-lat-hosp" name="lat" value="">
+        <input type="hidden" id="input-lon-hosp" name="lon" value="">
+
+        <div class="search-submit-group">
+          <button type="submit" class="btn-primary btn-search-go">Search Hospitals</button>
+        </div>
+
+      </div>
+
+      <!-- SERVICE FILTER CHECKBOXES -->
+      <div class="checkbox-filter-row">
+        <span class="filter-label">Local Directory Filters:</span>
+        <label class="checkbox-pill">
+          <input type="checkbox" name="emergency" value="1" {{ 'checked' if selected_emergency else '' }} onchange="this.form.submit()">
+          🚨 24x7 Emergency Unit Only
+        </label>
+        <label class="checkbox-pill">
+          <input type="checkbox" name="transplant" value="1" {{ 'checked' if selected_transplant else '' }} onchange="this.form.submit()">
+          🫀 Certified NOTTO Transplant Center
+        </label>
+      </div>
+    </form>
+
+    <div class="resolved-location-strip">
+      <span class="loc-pin">📍</span>
+      <span class="loc-text">Location Center: <strong>{{ resolved_location }}</strong></span>
+      {% if location_valid %}<span class="loc-coords">[{{ "%.5f"|format(current_lat) }}, {{ "%.5f"|format(current_lon) }}]</span>{% endif %}
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       SECTION 1: LIVE OPENSTREETMAP HOSPITAL RESULTS (MAP & CARDS)
+       ========================================================================= -->
+  <section class="live-places-panel" aria-labelledby="live-hospitals-title">
+    <div class="live-places-heading">
+      <div>
+        <h3 id="live-hospitals-title">🚑 Nearby Hospitals from OpenStreetMap (Live Discovery)</h3>
+        <p>Live community-mapped hospitals within <strong>{{ search_radius_km }} km</strong> of your search location. Sorted strictly by straight-line distance. Hospital capacity, ICU intake, and emergency status are not confirmed by OpenStreetMap.</p>
+      </div>
+      <a class="btn-action btn-directions" href="{{ osm_location_url }}" target="_blank" rel="noopener noreferrer">View Search Area in OpenStreetMap ↗</a>
+    </div>
+
+    {% if places_error %}
+      <div class="live-places-message" role="status">
+        ⚠️ {{ places_error }}
+        {% if hospitals %}<strong>{{ hospitals|length }} saved PharmaTrack hospital listings are available in the separate directory section below.</strong>{% endif %}
+        You can also view the search area in OpenStreetMap.
+      </div>
+    {% elif not live_hospitals and location_valid %}
+      <div class="live-places-message" role="status">
+        ℹ️ OpenStreetMap has no community-mapped hospital entries within <strong>{{ search_radius_km }} km</strong> of {{ resolved_location }}. 
+        You can expand your search radius above to 10 km or 25 km, or try device GPS.
+      </div>
+    {% endif %}
+
+    {% if location_valid %}
+    <div id="hospital-osm-map" class="leaflet-map" role="application" aria-label="OpenStreetMap showing nearby hospital results"></div>
+    <p class="map-caption">© OpenStreetMap contributors. Geodesic distance calculated from search coordinates.</p>
+    {% endif %}
+
+    {% if live_hospitals %}
+    <div class="live-places-heading" style="margin-top: 18px; margin-bottom: 8px;">
+      <h4 style="margin: 0; color: var(--accent-navy);">
+        Live Results within Search Radius ({{ live_hospitals|length }} facilities found)
+      </h4>
+    </div>
+
+    <div class="live-places-grid">
+      {% for place in live_hospitals %}
+      <article class="live-place-card">
+        <div class="live-place-title-row">
+          <h4>{{ place.name }}</h4>
+          <span class="live-rank">#{{ loop.index }}</span>
+        </div>
+        {% if place.type_label %}<span class="live-place-type">{{ place.type_label }}</span>{% endif %}
+        <p class="live-place-address">📍 {{ place.address }}</p>
+        <p class="live-place-source">OpenStreetMap Live Data • <strong>{{ "%.2f"|format(place.distance_km) }} km away</strong></p>
+        <div class="live-place-actions">
+          <a class="btn-action btn-google-dir" href="{{ place.google_directions_url }}" target="_blank" rel="noopener noreferrer" title="Get driving directions in Google Maps">
+            🗺️ Directions in Google Maps ↗
+          </a>
+          <a class="btn-action btn-osm-dir" href="{{ place.osm_directions_url }}" target="_blank" rel="noopener noreferrer" title="Get driving directions in OpenStreetMap OSRM">
+            🧭 Directions in OpenStreetMap ↗
+          </a>
+          <a class="live-place-map-link" href="{{ place.osm_url }}" target="_blank" rel="noopener noreferrer" title="Inspect node/way on OpenStreetMap">
+            View place on OSM ↗
+          </a>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- =========================================================================
+       SECTION 2: PHARMATRACK HOSPITAL DIRECTORY & NOTTO TRANSPLANT CENTERS
+       ========================================================================= -->
+  <section class="directory-section-box" style="margin-top: 36px; padding-top: 24px; border-top: 2px dashed #cbd5e1;">
+    <h3 class="directory-section-heading">🏥 PharmaTrack Hospital Directory & NOTTO Transplant Centers</h3>
+    <p class="directory-section-note">
+      These records are maintained in the project’s local SQLite data warehouse (<code>dim_hospital</code>) and include verified clinical specialties, 24x7 emergency department phone lines, and certified NOTTO organ transplant centers. They are maintained separately from the live OpenStreetMap results above.
+    </p>
+
+    <!-- HOSPITAL RESULTS (LOCAL DIRECTORY) -->
+    <div class="hospital-layout-container">
+      <div class="hospitals-list-grid">
+        {% for h in hospitals %}
+        <div class="hospital-card {{ 'card-transplant' if h.has_transplant else '' }}">
+          <div class="hosp-card-header">
+            <div class="hosp-title-group">
+              <h3 class="hosp-name">{{ h.name }}</h3>
+              <div class="hosp-badges">
+                <span class="badge badge-type badge-type-{{ h.hospital_type|lower }}">{{ h.hospital_type }}</span>
+                {% if h.has_emergency %}
+                  <span class="badge badge-er">🚨 24x7 Emergency</span>
+                {% endif %}
+                {% if h.has_transplant %}
+                  <span class="badge badge-notto">🫀 NOTTO Transplant Center</span>
+                {% endif %}
+              </div>
+            </div>
+            <div class="hosp-distance-box">
+              <span class="dist-val">{{ h.distance_km }}</span>
+              <span class="dist-unit">km away</span>
+            </div>
+          </div>
+
+          <div class="hosp-card-body">
+            <p class="hosp-address">📍 {{ h.address }}, {{ h.city }}, {{ h.state }} - {{ h.pincode }}</p>
+
+            <div class="hosp-services-box">
+              <span class="services-label">Listed Clinical Services & Specialties:</span>
+              <p class="services-text">{{ h.listed_services }}</p>
+            </div>
+
+            <div class="hosp-contact-meta">
+              <div class="meta-line">
+                <strong>Emergency Helpline:</strong> 
+                <a href="tel:{{ h.emergency_helpline }}" class="helpline-link">{{ h.emergency_helpline }}</a>
+              </div>
+              <div class="meta-line">
+                <strong>General Enquiries:</strong> 
+                <a href="tel:{{ h.phone }}">{{ h.phone }}</a>
+              </div>
+              {% if h.website %}
+              <div class="meta-line">
+                <strong>Official Website:</strong> 
+                <a href="{{ h.website }}" target="_blank" rel="noopener noreferrer">Visit Portal ↗</a>
+              </div>
+              {% endif %}
+            </div>
+
+            <div class="hosp-verification-strip">
+              <span>Source: {{ h.source }}</span>
+              <span>Verified: {{ h.last_verified }}</span>
+            </div>
+          </div>
+
+          <div class="hosp-card-actions">
+            <a href="tel:{{ h.emergency_helpline.split('/')[0].strip() }}" class="btn-action btn-call-er" aria-label="Call emergency helpline">
+              📞 Call Emergency
+            </a>
+            <a href="{{ h.google_directions_url }}"
+               target="_blank" rel="noopener noreferrer" class="btn-action btn-google-dir" title="Open Google Maps directions">
+              🗺️ Directions in Google Maps ↗
+            </a>
+            <a href="{{ h.osm_directions_url or h.directions_url }}"
+               target="_blank" rel="noopener noreferrer" class="btn-action btn-osm-dir" title="Open OpenStreetMap directions">
+              🧭 Directions in OpenStreetMap ↗
+            </a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const hospitalOrigin = {% if location_valid %}[{{ current_lat }}, {{ current_lon }}]{% else %}null{% endif %};
+  const hospitalOsmPlaces = {{ live_hospitals|tojson }};
+  const hospitalMapNode = document.getElementById('hospital-osm-map');
+  if (hospitalMapNode && hospitalOrigin && window.L) {
+    const hospitalMap = L.map(hospitalMapNode).setView(hospitalOrigin, 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+    }).addTo(hospitalMap);
+
+    // Search Center Pin
+    L.circleMarker(hospitalOrigin, { radius: 8, color: '#0b7285', fillColor: '#0b7285', fillOpacity: 1 })
+      .addTo(hospitalMap).bindPopup('<strong>📍 Search Center:</strong><br>{{ resolved_location }}');
+
+    const hospitalBounds = [hospitalOrigin];
+    hospitalOsmPlaces.forEach(place => {
+      const point = [place.latitude, place.longitude];
+      const popupHtml = `
+        <div style="font-size: 13px; line-height: 1.45;">
+          <strong>${place.name}</strong><br>
+          <span style="color: #64748b; font-size: 11.5px;">📍 ${place.address}</span><br>
+          <span style="color: #1d4ed8; font-weight: 600;">📏 ${place.distance_km.toFixed(2)} km away</span>
+          <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
+            <a href="${place.google_directions_url}" target="_blank" rel="noopener noreferrer" style="color: #15803d; font-weight: 600; text-decoration: none;">🗺️ Google Maps Directions ↗</a>
+            <a href="${place.osm_directions_url}" target="_blank" rel="noopener noreferrer" style="color: #0369a1; font-weight: 600; text-decoration: none;">🧭 OpenStreetMap Directions ↗</a>
+          </div>
+        </div>
+      `;
+      L.circleMarker(point, { radius: 7, color: '#1d4ed8', fillColor: '#60a5fa', fillOpacity: 0.9 })
+        .addTo(hospitalMap).bindPopup(popupHtml);
+      hospitalBounds.push(point);
+    });
+
+    if (hospitalBounds.length > 1) {
+      hospitalMap.fitBounds(hospitalBounds, { padding: [24, 24], maxZoom: 15 });
+    }
+  }
+
+  // Clear hidden GPS inputs when user types in the search box
+  const hospitalLocationInput = document.getElementById('locality-input-hosp');
+  const hospitalLatInput = document.getElementById('input-lat-hosp');
+  const hospitalLonInput = document.getElementById('input-lon-hosp');
+
+  hospitalLocationInput.addEventListener('input', () => {
+    hospitalLatInput.value = '';
+    hospitalLonInput.value = '';
+  });
+
+  // Device Geolocation for Hospitals
+  document.getElementById('btn-device-loc-hosp').addEventListener('click', function() {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser. Please enter your location manually.");
+      return;
+    }
+    this.innerText = "⏳ Requesting...";
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        document.getElementById('input-lat-hosp').value = pos.coords.latitude;
+        document.getElementById('input-lon-hosp').value = pos.coords.longitude;
+        document.getElementById('locality-input-hosp').value = "Current Device Location";
+        document.getElementById('hospital-form').submit();
+      },
+      err => {
+        alert("GPS location permission was denied. Enter your locality name or postal code manually.");
+        this.innerText = "📍 Near Me";
+      },
+      { timeout: 10000 }
+    );
+  });
+</script>
+{% endblock %}

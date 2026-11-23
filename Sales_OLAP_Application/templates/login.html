@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}Sign In - Role-Based Access Control - PharmaTrack DW{% endblock %}
+
+{% block content %}
+<div class="login-wrapper">
+  
+  <!-- EMERGENCY DIRECT ACCESS NOTICE (WITHOUT LOGIN) -->
+  <aside class="emergency-hero-callout" aria-label="Emergency Direct Access">
+    <div class="emergency-hero-header">
+      <span class="emergency-icon-large">🚨</span>
+      <div>
+        <h3>Facing a Life-Threatening Emergency?</h3>
+        <p>You do not need to sign in, search, or fill out any form. Call official emergency responders directly:</p>
+      </div>
+    </div>
+    <div class="emergency-hero-buttons">
+      <a href="tel:108" class="btn-emergency-hero call-108" aria-label="Call 108 Tamil Nadu Emergency Ambulance">
+        <span class="btn-icon">📞</span>
+        <div>
+          <span class="btn-title">Call 108</span>
+          <span class="btn-desc">Tamil Nadu Ambulance Service</span>
+        </div>
+      </a>
+      <a href="tel:112" class="btn-emergency-hero call-112" aria-label="Call 112 All India Emergency Response">
+        <span class="btn-icon">📞</span>
+        <div>
+          <span class="btn-title">Call 112</span>
+          <span class="btn-desc">All India Emergency ERSS</span>
+        </div>
+      </a>
+      <a href="{{ url_for('emergency') }}" class="btn-emergency-alt">
+        🏥 Find Nearest Emergency Hospital ↗
+      </a>
+    </div>
+  </aside>
+
+  <!-- ROLE PERMISSION & SCOPE SHOWCASE (ALWAYS VISIBLE FIRST) -->
+  <div class="role-overview-section" aria-label="Role Access Scopes">
+    <div class="role-overview-header">
+      <h3>Available Access Roles & Capabilities</h3>
+      <p>Select your assigned role before authenticating. The selected role is checked against the account linked to your registered email.</p>
+    </div>
+    <div class="role-cards-grid">
+      <div class="role-feature-card" id="card-role-public" onclick="selectRolePreset('public')">
+        <div class="role-card-top">
+          <span class="role-icon">👤</span>
+          <span class="badge badge-public">PUBLIC CITIZEN</span>
+        </div>
+        <h4>Public Citizen</h4>
+        <p class="role-desc">Medicine search with autocomplete, verified nearby pharmacy & hospital locator with GPS geodesic routing, demand & weather analytics, and NOTTO organ-donation resources.</p>
+        <span class="role-tag">Open Public Access</span>
+      </div>
+
+      <div class="role-feature-card" id="card-role-owner" onclick="selectRolePreset('pharmacy_owner')">
+        <div class="role-card-top">
+          <span class="role-icon">🏬</span>
+          <span class="badge badge-owner">PHARMACY OWNER</span>
+        </div>
+        <h4>Pharmacy Owner</h4>
+        <p class="role-desc">Manage only your assigned pharmacy or franchise profiles and submit stock updates for those locations with timestamped 48-hour staleness tracking.</p>
+        <span class="role-tag">Requires Verified Ownership</span>
+      </div>
+
+      <div class="role-feature-card" id="card-role-staff" onclick="selectRolePreset('hospital_staff')">
+        <div class="role-card-top">
+          <span class="role-icon">🏥</span>
+          <span class="badge badge-staff">HOSPITAL STAFF</span>
+        </div>
+        <h4>Hospital Staff</h4>
+        <p class="role-desc">Manage only your assigned hospital profile and update its contact details, listed clinical specialties, operating hours, and emergency capacity indicators.</p>
+        <span class="role-tag">Requires Staff Verification</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIGN IN CONTAINER -->
+  <div class="login-card-container">
+    <div class="login-card">
+      
+      <div class="login-header">
+        <div class="login-icon">🔐</div>
+        <h2>Sign In to PharmaTrack DW</h2>
+        <p class="login-desc">Select your role and enter the email registered to your account. We will email you a one-time sign-in code.</p>
+      </div>
+
+      {% if error %}
+      <div class="auth-error-box" role="alert">
+        <span class="error-icon">⚠️</span>
+        <span class="error-message">{{ error }}</span>
+      </div>
+      {% endif %}
+
+      <form action="{{ url_for('login') }}" method="POST" class="auth-form" novalidate>
+        <!-- ROLE SELECTOR -->
+        <div class="form-group">
+          <label for="signin-role-select" class="form-label">
+            <strong>1. Select Role</strong> <span class="required">*</span>
+          </label>
+          <select id="signin-role-select" name="role" class="form-control form-select-large" required onchange="highlightRoleCard(this.value)">
+            <option value="" disabled {% if not selected_role %}selected{% endif %}>-- Choose your role --</option>
+            <option value="public" {% if selected_role == 'public' %}selected{% endif %}>Public Citizen</option>
+            <option value="pharmacy_owner" {% if selected_role == 'pharmacy_owner' %}selected{% endif %}>Pharmacy Owner</option>
+            <option value="hospital_staff" {% if selected_role == 'hospital_staff' %}selected{% endif %}>Hospital Staff</option>
+          </select>
+          <span class="form-hint">Use your registered email and choose the profile you want to open. This local capstone demo has pre-provisioned accounts for all three roles; each role opens its assigned demo data.</span>
+        </div>
+
+        <!-- REGISTERED EMAIL -->
+        <div class="form-group">
+          <label for="signin-email" class="form-label">
+            <strong>2. Registered Email</strong> <span class="required">*</span>
+          </label>
+          <input 
+            type="email" 
+            id="signin-email" 
+            name="email" 
+            class="form-control" 
+            placeholder="Enter your registered email address" 
+            value="{{ submitted_email|default('') }}"
+            required 
+            autocomplete="email"
+          >
+        </div>
+
+        <button type="submit" class="btn-submit-login">
+        Email Me a Sign-In Code →
+        </button>
+      </form>
+
+      <!-- SWITCH TO CREATE ACCOUNT -->
+      <div class="auth-switch-box">
+        <p class="auth-switch-text">New users can create a Public Citizen account. Pharmacy Owner and Hospital Staff profiles are provisioned for this project.</p>
+        <a href="{{ url_for('register') }}" class="btn-auth-switch" id="link-create-account">
+          📝 Create Public Citizen Account →
+        </a>
+      </div>
+
+      <div class="login-footer-notes">
+        <p class="security-note">
+          🔒 <strong>Email verification:</strong> Sign-in completes only after the one-time code sent to your registered email is verified.
+        </p>
+        <p class="admin-notice">
+          ℹ️ <strong>System Administration Notice:</strong> The user-facing Project Administrator role and Admin Portal have been removed from this application. Database migrations and ETL pipeline operations are managed exclusively through documented developer CLI scripts (<code>python etl.py</code>, <code>python migrate_db.py</code>).
+        </p>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function selectRolePreset(role) {
+    const signinSelect = document.getElementById('signin-role-select');
+    if (signinSelect) {
+      signinSelect.value = role;
+      highlightRoleCard(role);
+    }
+  }
+
+  function highlightRoleCard(role) {
+    const cards = {
+      'public': document.getElementById('card-role-public'),
+      'pharmacy_owner': document.getElementById('card-role-owner'),
+      'hospital_staff': document.getElementById('card-role-staff')
+    };
+    Object.keys(cards).forEach(k => {
+      if (cards[k]) {
+        if (k === role) {
+          cards[k].classList.add('selected');
+        } else {
+          cards[k].classList.remove('selected');
+        }
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const signinSelect = document.getElementById('signin-role-select');
+    if (signinSelect && signinSelect.value) {
+      highlightRoleCard(signinSelect.value);
+    }
+  });
+</script>
+{% endblock %}

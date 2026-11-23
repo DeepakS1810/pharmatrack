@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block title %}Medicine Demand Trends and Weather Analysis{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  
+  <div class="page-header">
+    <div class="page-header-text">
+      <h2>📈 Medicine Demand Trends & Regional Weather Analysis</h2>
+      <p>Evaluate observed historical associations between meteorological indicators (temperature, precipitation) and pharmaceutical demand across geographic regions.</p>
+    </div>
+    <div class="page-header-badge">
+      <span class="badge badge-analytics">DWDM Correlation Analysis</span>
+    </div>
+  </div>
+
+  <!-- SCIENTIFIC CORRELATION & CAUSATION DISCLAIMER -->
+  <div class="alert-box alert-scientific">
+    <div class="alert-icon">📊</div>
+    <div class="alert-body">
+      <strong>Data Warehousing & Mining (DWDM) Analytical Disclaimer:</strong>
+      This dashboard demonstrates <strong>observed statistical associations and time-series comparisons only</strong>.
+      It does <strong>not</strong> claim that weather indicators directly caused medicine demand, that sales volume equates to clinical disease prevalence,
+      or that any medicine is indicated to treat a weather phenomenon. Data reflects historical educational transactions (2025–2026) alongside regional meteorological climate norms.
+    </div>
+  </div>
+
+  <!-- CONTROL PANEL -->
+  <div class="search-panel-card">
+    <form action="{{ url_for('analytics') }}" method="GET" class="filter-form">
+      <div class="filter-row-secondary">
+        <div class="filter-item">
+          <label for="region-select" class="form-label">Select Geographic Region / State:</label>
+          <select id="region-select" name="region" class="form-control" onchange="this.form.submit()">
+            {% for r in regions %}
+              <option value="{{ r }}" {{ 'selected' if selected_region == r else '' }}>{{ r }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="filter-item">
+          <span class="meta-label">Data Sources:</span>
+          <span class="meta-value">pharma_sales.csv + Open-Meteo Meteorological Archive</span>
+        </div>
+
+        <div class="filter-item">
+          <span class="meta-label">Time Period:</span>
+          <span class="meta-value">January 2025 – May 2026 (500 observation days)</span>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- ANALYTICS CHARTS GRID -->
+  <div class="analytics-charts-grid">
+    
+    <!-- CHART 1: MONTHLY DEMAND TRENDS -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>Medicine Demand Over Time ({{ selected_region }})</h3>
+        <span class="chart-tag">Units Dispensed</span>
+      </div>
+      <div class="chart-container">
+        <canvas id="demandTrendChart" height="280"></canvas>
+      </div>
+    </div>
+
+    <!-- CHART 2: TEMPERATURE & RAINFALL OVER TIME -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>Observed Climate Indicators ({{ selected_region }})</h3>
+        <span class="chart-tag">Temperature (°C) & Rainfall (mm)</span>
+      </div>
+      <div class="chart-container">
+        <canvas id="weatherTrendChart" height="280"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- SEASONAL DEMAND COMPARISON TABLE -->
+  <div class="data-table-card">
+    <div class="card-header">
+      <h3>Observed Seasonal Demand Distribution ({{ selected_region }})</h3>
+      <span class="table-subtitle">Aggregated sales units grouped by meteorological season</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Season</th>
+            <th>Medicine Name</th>
+            <th>Total Units Dispensed</th>
+            <th>Average Regional Temp (°C)</th>
+            <th>Total Precipitation (mm)</th>
+            <th>Observed Association Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in seasonal_summary %}
+          <tr>
+            <td>
+              <span class="season-badge season-{{ s.season|lower }}">{{ s.season }}</span>
+            </td>
+            <td><strong>{{ s.drug_name }}</strong></td>
+            <td>{{ "{:,}".format(s.season_units) }}</td>
+            <td>{{ s.season_avg_temp }}°C</td>
+            <td>{{ s.season_precip }} mm</td>
+            <td>
+              {% if s.season == 'Monsoon' and s.drug_name in ['Paracetamol', 'Azithromycin'] %}
+                <span class="text-note">Elevated demand observed during high precipitation periods</span>
+              {% elif s.season == 'Summer' and s.drug_name == 'Insulin' %}
+                <span class="text-note">Consistent baseline cold-chain demand observed</span>
+              {% else %}
+                <span class="text-note">Standard seasonal prescription distribution</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const rawData = [
+      {% for m in monthly_data %}
+        {
+          period: "{{ m.year }}-{{ '%02d'|format(m.month) }}",
+          drug: {{ m.drug_name|tojson }},
+          units: {{ m.total_units_sold }},
+          temp: {{ m.avg_temp|round(1) if m.avg_temp else 0 }},
+          precip: {{ m.avg_precip|round(1) if m.avg_precip else 0 }}
+        },
+      {% endfor %}
+    ];
+
+    // Extract unique periods
+    const periods = [...new Set(rawData.map(r => r.period))].sort();
+    const drugs = [...new Set(rawData.map(r => r.drug))].sort();
+
+    // Palette
+    const colors = {
+      'Amoxicillin': '#0284c7',
+      'Azithromycin': '#0d9488',
+      'Insulin': '#7c3aed',
+      'Metformin': '#ea580c',
+      'Paracetamol': '#e11d48'
+    };
+
+    // Demand Chart
+    const demandDatasets = drugs.map(drug => {
+      const dataPoints = periods.map(p => {
+        const match = rawData.find(r => r.period === p && r.drug === drug);
+        return match ? match.units : 0;
+      });
+      return {
+        label: drug,
+        data: dataPoints,
+        borderColor: colors[drug] || '#64748b',
+        backgroundColor: (colors[drug] || '#64748b') + '20',
+        fill: false,
+        tension: 0.3
+      };
+    });
+
+    const ctxDemand = document.getElementById('demandTrendChart').getContext('2d');
+    new Chart(ctxDemand, {
+      type: 'line',
+      data: {
+        labels: periods,
+        datasets: demandDatasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top' }
+        },
+        scales: {
+          y: { title: { display: true, text: 'Quantity Sold (Units)' } },
+          x: { title: { display: true, text: 'Observation Period (Year-Month)' } }
+        }
+      }
+    });
+
+    // Weather Chart
+    const tempData = periods.map(p => {
+      const match = rawData.find(r => r.period === p);
+      return match ? match.temp : 0;
+    });
+    const precipData = periods.map(p => {
+      const match = rawData.find(r => r.period === p);
+      return match ? match.precip : 0;
+    });
+
+    const ctxWeather = document.getElementById('weatherTrendChart').getContext('2d');
+    new Chart(ctxWeather, {
+      type: 'bar',
+      data: {
+        labels: periods,
+        datasets: [
+          {
+            type: 'line',
+            label: 'Avg Temperature (°C)',
+            data: tempData,
+            borderColor: '#f59e0b',
+            backgroundColor: '#f59e0b',
+            yAxisID: 'yTemp',
+            tension: 0.3
+          },
+          {
+            type: 'bar',
+            label: 'Precipitation (mm)',
+            data: precipData,
+            backgroundColor: '#38bdf880',
+            borderColor: '#0284c7',
+            borderWidth: 1,
+            yAxisID: 'yPrecip'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          yTemp: {
+            type: 'linear',
+            position: 'left',
+            title: { display: true, text: 'Temperature (°C)' }
+          },
+          yPrecip: {
+            type: 'linear',
+            position: 'right',
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: 'Precipitation (mm)' }
+          }
+        }
+      }
+    });
+
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block title %}National Organ Donation Awareness & Authorized Transplant Centers{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  
+  <div class="page-header">
+    <div class="page-header-text">
+      <h2>🫀 National Organ Donation Awareness & Transplant Directory</h2>
+      <p>Official public education on deceased organ donation, authorized NOTTO registries, legal protocols under THOTA 1994, and accredited transplant institutes.</p>
+    </div>
+    <div class="page-header-badge">
+      <span class="badge badge-notto">NOTTO Official Awareness Portal</span>
+    </div>
+  </div>
+
+  <!-- ETHICAL & LEGAL BOUNDARY ADVISORY BANNER -->
+  <div class="alert-box alert-organ-ethics">
+    <div class="alert-icon">⚖️</div>
+    <div class="alert-body">
+      <strong>Statutory Compliance & Legal Disclaimer (THOTA 1994):</strong>
+      This application is purely an educational awareness resource. It is <strong>not an organ-matching exchange, patient registry, or commercial platform</strong>.
+      In accordance with the <em>Transplantation of Human Organs and Tissues Act (THOTA), 1994</em>, organ commercialization is illegal and strictly prohibited.
+      Allocation and waitlisting are managed exclusively by the Government of India through the National Organ and Tissue Transplant Organization (NOTTO).
+      No individual donor, recipient, or compatibility records are collected or stored by this software.
+    </div>
+  </div>
+
+  <!-- AWARENESS POSTER BANNER / MODAL LAUNCHER -->
+  <div class="poster-callout-card">
+    <div class="poster-preview-block">
+      <div class="poster-badge-ribbon">National Health Mission</div>
+      <h3>"Be a Life Saver: Pledge for Organ Donation"</h3>
+      <p>Learn how deceased organ donation can save up to 8 lives and restore vision to 2 individuals.</p>
+      <div class="poster-action-group">
+        <button type="button" class="btn-primary btn-view-poster" id="btn-open-poster" aria-haspopup="dialog" aria-controls="awareness-poster-modal">
+          🖼️ View Official Awareness Poster & Guidelines
+        </button>
+        <a href="https://notto.mohfw.gov.in/" target="_blank" rel="noopener noreferrer" class="btn-secondary btn-notto-external">
+          Visit Official NOTTO Portal ↗
+        </a>
+      </div>
+    </div>
+
+    <div class="poster-helpline-box">
+      <span class="helpline-icon">📞</span>
+      <div>
+        <span class="helpline-title">NOTTO National 24x7 Toll-Free Helpline:</span>
+        <a href="tel:1800114770" class="helpline-phone-large">1800-11-4770</a>
+        <span class="helpline-dept">Ministry of Health & Family Welfare, Govt. of India</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- KEY FACTS & EDUCATIONAL GUIDELINES -->
+  <div class="organ-facts-grid">
+    <div class="fact-card">
+      <div class="fact-icon">🫀</div>
+      <h4>What Organs Can Be Donated?</h4>
+      <p>Kidneys, Liver, Heart, Lungs, Pancreas, and Small Intestine can be donated following verified brainstem death certification by accredited medical boards.</p>
+    </div>
+
+    <div class="fact-card">
+      <div class="fact-icon">👁️</div>
+      <h4>Tissue Donation</h4>
+      <p>Corneas (restoring eyesight), Heart Valves, Skin, Bone, and Tendons can be donated even after circulatory cardiac death within documented recovery windows.</p>
+    </div>
+
+    <div class="fact-card">
+      <div class="fact-icon">📜</div>
+      <h4>How to Pledge Official Support?</h4>
+      <p>Pledging is an expression of noble intent. Inform your immediate family members so they can uphold your wishes through official SOTTO/NOTTO nodal officers.</p>
+    </div>
+  </div>
+
+  <!-- AUTHORIZED TRANSPLANT HOSPITALS DIRECTORY -->
+  <div class="data-table-card">
+    <div class="card-header">
+      <h3>Accredited Public & Government Transplant Centers</h3>
+      <span class="table-subtitle">Official institutes registered with NOTTO/SOTTO for certified organ retrieval and transplantation</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Hospital & Institute Name</th>
+            <th>State / City</th>
+            <th>NOTTO Registry ID</th>
+            <th>Authorized Organ Programs</th>
+            <th>Helpline & Contact</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in centers %}
+          <tr>
+            <td>
+              <strong>{{ c.name }}</strong>
+              <div class="text-muted"><small>{{ c.address }}</small></div>
+            </td>
+            <td>
+              <span class="badge-state">{{ c.state }}</span> ({{ c.city }})
+            </td>
+            <td><code>{{ c.notto_registered_id }}</code></td>
+            <td>
+              <span class="organs-pill">{{ c.authorized_organs }}</span>
+            </td>
+            <td>
+              <div><a href="tel:{{ c.phone }}">{{ c.phone }}</a></div>
+              <small class="text-muted">{{ c.helpline }}</small>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- ========================================================================= -->
+<!-- ACCESSIBLE & DISMISSIBLE ORGAN DONATION POSTER MODAL -->
+<!-- ========================================================================= -->
+<div 
+  id="awareness-poster-modal" 
+  class="modal-backdrop" 
+  style="display: none;" 
+  role="dialog" 
+  aria-modal="true" 
+  aria-labelledby="modal-poster-title"
+>
+  <div class="modal-dialog-container" id="modal-container">
+    
+    <div class="modal-poster-card" id="modal-inner-card">
+      <!-- Top Close Button -->
+      <button type="button" class="btn-modal-close" id="btn-close-poster" aria-label="Close Awareness Poster (Esc)">
+        ✕
+      </button>
+
+      <div class="modal-header-banner">
+        <span class="banner-crest">🇮🇳</span>
+        <div>
+          <span class="banner-sub">Government of India • Ministry of Health and Family Welfare</span>
+          <h3 id="modal-poster-title">National Organ & Tissue Transplant Awareness</h3>
+        </div>
+      </div>
+
+      <div class="modal-poster-body">
+        <div class="poster-visual-center">
+          <div class="poster-art-box">
+            <span class="art-icon">🫀 👁️ 🫁 🩺</span>
+            <h2>"One Life Ends, Many Can Begin"</h2>
+            <p class="poster-motto">Your Decision Can Gift A Lifetime to Someone Waiting</p>
+          </div>
+        </div>
+
+        <div class="poster-key-points">
+          <div class="point-item">
+            <strong>8 Lives Saved:</strong> A single deceased organ donor can save up to eight lives suffering end-stage organ failure.
+          </div>
+          <div class="point-item">
+            <strong>2 Visions Restored:</strong> Cornea donation can restore sight to two individuals suffering corneal blindness.
+          </div>
+          <div class="point-item">
+            <strong>Strict Ethical Framework:</strong> Allocation strictly follows national clinical waitlists maintained by NOTTO. Commercial transactions are criminal offenses.
+          </div>
+        </div>
+
+        <div class="poster-contact-callout">
+          <div class="callout-line">
+            <span>Official 24x7 Toll-Free National Helpline:</span>
+            <a href="tel:1800114770" class="link-helpline"><strong>1800-11-4770</strong></a>
+          </div>
+          <div class="callout-line">
+            <span>Official Web Portal:</span>
+            <a href="https://notto.mohfw.gov.in/" target="_blank" rel="noopener noreferrer">https://notto.mohfw.gov.in ↗</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer-bar">
+        <span class="footer-note">Press <kbd>Esc</kbd> or click outside to close this announcement.</span>
+        <button type="button" class="btn-dismiss-modal" id="btn-dismiss-bottom">
+          I Understand & Close
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // Accessible, Dismissible Modal Controller
+  const modal = document.getElementById('awareness-poster-modal');
+  const btnOpen = document.getElementById('btn-open-poster');
+  const btnClose = document.getElementById('btn-close-poster');
+  const btnDismiss = document.getElementById('btn-dismiss-bottom');
+  const innerCard = document.getElementById('modal-inner-card');
+  let previouslyFocusedElement = null;
+
+  function openPosterModal() {
+    previouslyFocusedElement = document.activeElement;
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden'; // Prevent background scrolling
+    btnClose.focus();
+  }
+
+  function closePosterModal() {
+    modal.style.display = 'none';
+    document.body.style.overflow = ''; // Restore background scrolling
+    sessionStorage.setItem('pharmatrack_poster_dismissed', 'true');
+    if (previouslyFocusedElement) {
+      previouslyFocusedElement.focus();
+    }
+  }
+
+  // Open button trigger
+  btnOpen.addEventListener('click', openPosterModal);
+
+  // Close triggers
+  btnClose.addEventListener('click', closePosterModal);
+  btnDismiss.addEventListener('click', closePosterModal);
+
+  // Escape key handler
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && modal.style.display === 'flex') {
+      closePosterModal();
+    }
+  });
+
+  // Clicking backdrop closes, clicking inside DOES NOT
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal || e.target.id === 'modal-container') {
+      closePosterModal();
+    }
+  });
+
+  // Check session memory: auto-open only once per session
+  document.addEventListener('DOMContentLoaded', function() {
+    const wasDismissed = sessionStorage.getItem('pharmatrack_poster_dismissed');
+    if (!wasDismissed) {
+      // Auto-open on initial visit for public awareness
+      setTimeout(openPosterModal, 500);
+    }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Emergency Recovery Code - PharmaTrack DW{% endblock %}
+
+{% block content %}
+<div class="login-wrapper">
+
+  <!-- EMERGENCY DIRECT ACCESS NOTICE -->
+  <aside class="emergency-hero-callout" aria-label="Emergency Direct Access">
+    <div class="emergency-hero-header">
+      <span class="emergency-icon-large">🚨</span>
+      <div>
+        <h3>Facing a Life-Threatening Emergency?</h3>
+        <p>You do not need to sign in. Call official emergency responders directly:</p>
+      </div>
+    </div>
+    <div class="emergency-hero-buttons">
+      <a href="tel:108" class="btn-emergency-hero call-108" aria-label="Call 108 Tamil Nadu Emergency Ambulance">
+        <span class="btn-icon">📞</span>
+        <div>
+          <span class="btn-title">Call 108</span>
+          <span class="btn-desc">Tamil Nadu Ambulance Service</span>
+        </div>
+      </a>
+      <a href="tel:112" class="btn-emergency-hero call-112" aria-label="Call 112 All India Emergency Response">
+        <span class="btn-icon">📞</span>
+        <div>
+          <span class="btn-title">Call 112</span>
+          <span class="btn-desc">All India Emergency ERSS</span>
+        </div>
+      </a>
+      <a href="{{ url_for('emergency') }}" class="btn-emergency-alt">
+        🏥 Find Nearest Emergency Hospital ↗
+      </a>
+    </div>
+  </aside>
+
+  <!-- RECOVERY CODE VERIFICATION CARD -->
+  <div class="login-card-container">
+    <div class="login-card totp-auth-card">
+      
+      <div class="login-header">
+        <div class="login-icon">🔑</div>
+        <h2>Emergency Recovery Code</h2>
+        <p class="login-desc">
+          Enter one of your 8-character single-use emergency recovery codes (e.g. <code>A1B2-C3D4</code>) saved during your authenticator setup.
+        </p>
+      </div>
+
+      <div class="user-verification-chip">
+        <span class="badge badge-public">Signing in as:</span>
+        <span class="verification-account-name"><strong>{{ username }}</strong> ({{ role|replace('_', ' ')|title }})</span>
+      </div>
+
+      <div class="recovery-code-warning-box">
+        <span class="warning-icon">ℹ️</span>
+        <span class="warning-text">
+          <strong>Single-use code:</strong> The code you enter will be permanently invalidated upon successful sign-in.
+        </span>
+      </div>
+
+      {% if error %}
+      <div class="auth-error-box" role="alert">
+        <span class="error-icon">⚠️</span>
+        <span class="error-message">{{ error }}</span>
+      </div>
+      {% endif %}
+
+      <form action="{{ url_for('login_recovery') }}" method="POST" class="auth-form" autocomplete="off">
+        <div class="form-group">
+          <label for="recovery_code" class="form-label text-center">
+            <strong>Enter Recovery Code</strong> <span class="required">*</span>
+          </label>
+          <div class="totp-input-container">
+            <input 
+              type="text" 
+              id="recovery_code" 
+              name="recovery_code" 
+              class="form-control recovery-code-input" 
+              placeholder="XXXX-XXXX" 
+              maxlength="12" 
+              required 
+              autofocus 
+              spellcheck="false"
+              autocomplete="off"
+            >
+          </div>
+          <span class="form-hint text-center">Format: 8 alphanumeric characters (hyphen optional).</span>
+        </div>
+
+        <button type="submit" class="btn-submit-login">
+          Verify Recovery Code & Sign In →
+        </button>
+      </form>
+
+      <!-- SWITCH BACK TO 2FA AUTHENTICATOR -->
+      <div class="auth-switch-box">
+        <p class="auth-switch-text">Have access to your authenticator app again?</p>
+        <a href="{{ url_for('login_2fa') }}" class="btn-auth-switch" id="link-back-totp">
+          🛡️ Return to Authenticator App Code
+        </a>
+      </div>
+
+      <div class="auth-cancel-row">
+        <a href="{{ url_for('cancel_2fa') }}" class="link-muted">
+          ← Cancel and return to Sign In
+        </a>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+

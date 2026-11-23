@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Emergency Help & Immediate Ambulance Access (108 / 112){% endblock %}
+
+{% block content %}
+<div class="page-container">
+  
+  <div class="emergency-alert-banner">
+    <div class="emergency-banner-main">
+      <span class="pulse-icon">🚨</span>
+      <div>
+        <h2>CRITICAL EMERGENCY MEDICAL ASSISTANCE</h2>
+        <p>If you or someone around you is in immediate danger, suffering chest pain, severe trauma, stroke symptoms, or acute respiratory distress, <strong>CALL IMMEDIATELY. Do not wait to complete any online form.</strong></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRIMARY EMERGENCY DISPATCH CARDS -->
+  <div class="emergency-dispatch-grid">
+    
+    <!-- 108 TAMIL NADU -->
+    <div class="dispatch-card dispatch-108">
+      <div class="dispatch-header">
+        <span class="dispatch-badge">Tamil Nadu State Service</span>
+        <span class="dispatch-availability">24 Hours / 365 Days Free</span>
+      </div>
+      <div class="dispatch-body">
+        <h3 class="dispatch-num">108</h3>
+        <h4 class="dispatch-title">Tamil Nadu Emergency Ambulance Service (108 EMS)</h4>
+        <p class="dispatch-desc">Operated under the Tamil Nadu Health Systems Project (TNHSP) and GVK EMRI for free emergency response, paramedic pre-hospital care, and patient transport.</p>
+        
+        <div class="dispatch-source">
+          <span>Official Source:</span>
+          <a href="https://tnhsp.org/pages/view/108_EMS" target="_blank" rel="noopener noreferrer">
+            Tamil Nadu Health System Project (TNHSP 108 EMS) ↗
+          </a>
+        </div>
+      </div>
+      <div class="dispatch-footer">
+        <a href="tel:108" class="btn-dispatch-call call-108-large" aria-label="Tap to call 108 Emergency Ambulance">
+          <span class="phone-icon">📞</span> Tap to Call 108 (Toll Free)
+        </a>
+      </div>
+    </div>
+
+    <!-- 112 INDIA ERSS -->
+    <div class="dispatch-card dispatch-112">
+      <div class="dispatch-header">
+        <span class="dispatch-badge">All India National Helpline</span>
+        <span class="dispatch-availability">Pan-India Unified 24x7</span>
+      </div>
+      <div class="dispatch-body">
+        <h3 class="dispatch-num">112</h3>
+        <h4 class="dispatch-title">Emergency Response Support System (ERSS - India)</h4>
+        <p class="dispatch-desc">Government of India single unified emergency phone number connecting Police, Fire, Ambulance, and Disaster Management across all States & Union Territories.</p>
+        
+        <div class="dispatch-source">
+          <span>Official Source:</span>
+          <a href="https://112.gov.in/about" target="_blank" rel="noopener noreferrer">
+            Ministry of Home Affairs - ERSS 112 Portal ↗
+          </a>
+        </div>
+      </div>
+      <div class="dispatch-footer">
+        <a href="tel:112" class="btn-dispatch-call call-112-large" aria-label="Tap to call 112 National Emergency">
+          <span class="phone-icon">📞</span> Tap to Call 112 (Toll Free)
+        </a>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- NEAREST EMERGENCY CASUALTY DEPARTMENTS -->
+  <div class="emergency-facilities-section">
+    <div class="section-heading-row">
+      <div>
+        <h3>🏥 Nearby Hospitals with 24x7 Emergency Departments</h3>
+        <p>Facilities with trauma casualty and intensive resuscitation capabilities listed by official health directories.</p>
+      </div>
+      <div class="location-refresh-box">
+        <button type="button" id="btn-refresh-loc" class="btn-secondary btn-sm">
+          📍 Update Location Coordinates
+        </button>
+      </div>
+    </div>
+
+    <div class="emergency-hospital-cards">
+      {% for eh in emergency_hospitals %}
+      <div class="emergency-hospital-item">
+        <div class="eh-info">
+          <h4>{{ eh.name }}</h4>
+          <p class="eh-addr">📍 {{ eh.address }}, {{ eh.city }} ({{ eh.district }})</p>
+          <p class="eh-services"><strong>Emergency Services:</strong> {{ eh.listed_services }}</p>
+          <span class="eh-source">Verified by {{ eh.source }}</span>
+        </div>
+        <div class="eh-actions">
+          <span class="eh-distance">{{ eh.distance_km }} km away</span>
+          <a href="tel:{{ eh.emergency_helpline.split('/')[0].strip() }}" class="btn-eh-call">
+            📞 Direct Call ({{ eh.emergency_helpline.split('/')[0].strip() }})
+          </a>
+          <a href="{{ eh.google_directions_url }}"
+             target="_blank" rel="noopener noreferrer" class="btn-eh-route" style="background:#f0fdf4; color:#15803d; border-color:#bbf7d0;">
+            🗺️ Directions in Google Maps ↗
+          </a>
+          <a href="{{ eh.osm_directions_url or eh.directions_url }}"
+             target="_blank" rel="noopener noreferrer" class="btn-eh-route">
+            🧭 Directions in OpenStreetMap ↗
+          </a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- DISPATCH DISCLAIMER & PRIVACY POLICY -->
+  <div class="emergency-disclaimer-box">
+    <h4>⚠️ Technical & Legal Disclaimers for Emergency Access</h4>
+    <ul>
+      <li><strong>No Direct Dispatching:</strong> PharmaTrack DW is an educational information system. It does <strong>not</strong> directly dispatch ambulances, operate tracking beacons, or control vehicle routes. Tapping call buttons initiates a standard phone call from your phone to the official government call center.</li>
+      <li><strong>No Live Bed Guarantee:</strong> Directory listings of emergency departments do not confirm current bed or ICU availability. Paramedics in 108 ambulances will route patients according to regional hospital intake status.</li>
+      <li><strong>Zero Privacy Tracking:</strong> In accordance with healthcare data ethics, this application does <strong>not collect, track, or record</strong> user emergency phone numbers, medical conditions, or precise location histories.</li>
+    </ul>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  document.getElementById('btn-refresh-loc').addEventListener('click', function() {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        window.location.href = `/emergency?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`;
+      }, () => {
+        alert("GPS location permission was denied.");
+      });
+    } else {
+      alert("Geolocation is not supported by your browser.");
+    }
+  });
+</script>
+{% endblock %}

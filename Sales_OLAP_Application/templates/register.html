@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}Create Account - Public Citizen - PharmaTrack DW{% endblock %}
+
+{% block content %}
+<div class="login-wrapper">
+  
+  <!-- EMERGENCY DIRECT ACCESS NOTICE (WITHOUT LOGIN) -->
+  <aside class="emergency-hero-callout" aria-label="Emergency Direct Access">
+    <div class="emergency-hero-header">
+      <span class="emergency-icon-large">🚨</span>
+      <div>
+        <h3>Facing a Life-Threatening Emergency?</h3>
+        <p>You do not need to register, sign in, or fill out any form. Call official emergency responders directly:</p>
+      </div>
+    </div>
+    <div class="emergency-hero-buttons">
+      <a href="tel:108" class="btn-emergency-hero call-108" aria-label="Call 108 Tamil Nadu Emergency Ambulance">
+        <span class="btn-icon">📞</span>
+        <div>
+          <span class="btn-title">Call 108</span>
+          <span class="btn-desc">Tamil Nadu Ambulance Service</span>
+        </div>
+      </a>
+      <a href="tel:112" class="btn-emergency-hero call-112" aria-label="Call 112 All India Emergency Response">
+        <span class="btn-icon">📞</span>
+        <div>
+          <span class="btn-title">Call 112</span>
+          <span class="btn-desc">All India Emergency ERSS</span>
+        </div>
+      </a>
+      <a href="{{ url_for('emergency') }}" class="btn-emergency-alt">
+        🏥 Find Nearest Emergency Hospital ↗
+      </a>
+    </div>
+  </aside>
+
+  <!-- PUBLIC CITIZEN REGISTRATION SCOPE CARD -->
+  <div class="role-overview-section" aria-label="Public Citizen Account Scope">
+    <div class="role-overview-header">
+      <h3>Public Citizen Account Registration</h3>
+      <p>Register as a Public Citizen to access real-time medicine availability, hospital locator, and health intelligence features.</p>
+    </div>
+    <div class="public-registration-callout">
+      <div class="role-card-top">
+        <span class="role-icon">👤</span>
+        <span class="badge badge-public">PUBLIC CITIZEN ACCESS</span>
+      </div>
+      <h4>What Public Citizen accounts can do:</h4>
+      <ul class="public-benefits-list">
+        <li>🔍 <strong>Medicine Search:</strong> Search verified pharmaceutical drugs with generic equivalents and live availability indicators.</li>
+        <li>🏥 <strong>Pharmacy Finder:</strong> Locate licensed pharmacies with GPS coordinates, operating hours, and verified stock badges.</li>
+        <li>🚑 <strong>Emergency Hospital Locator:</strong> Identify government and private tertiary care centers with ICU, blood bank, and 24x7 trauma facilities.</li>
+        <li>🫀 <strong>NOTTO Organ Awareness:</strong> View state organ donation registries, transplant milestones, and hospital coordinator contacts.</li>
+        <li>🔒 <strong>Two-Step Verification (TOTP):</strong> Secure your account with Google Authenticator, Microsoft Authenticator, or backup recovery codes.</li>
+      </ul>
+      <div class="institutional-role-note">
+        <strong>Institutional Accounts Notice:</strong> Pharmacy Owner and Hospital Staff accounts require formal institutional verification and are provisioned directly by health system administrators via secure developer CLI setup.
+      </div>
+    </div>
+  </div>
+
+  <!-- CREATE ACCOUNT CONTAINER -->
+  <div class="login-card-container">
+    <div class="login-card">
+      
+      <div class="login-header">
+        <div class="login-icon">📝</div>
+        <h2>Create Public Citizen Account</h2>
+        <p class="login-desc">Enter an email you can access. We will send a one-time code after you submit; verify it to finish creating your account and sign in.</p>
+      </div>
+
+      {% if error %}
+      <div class="auth-error-box" role="alert">
+        <span class="error-icon">⚠️</span>
+        <span class="error-message">{{ error }}</span>
+      </div>
+      {% endif %}
+
+      <form action="{{ url_for('register') }}" method="POST" class="auth-form" novalidate>
+        <!-- Enforce public citizen role -->
+        <input type="hidden" name="role" value="public">
+
+        <!-- FULL NAME -->
+        <div class="form-group">
+          <label for="signup-fullname" class="form-label">
+            <strong>1. Full Name / Display Name</strong> <span class="required">*</span>
+          </label>
+          <input 
+            type="text" 
+            id="signup-fullname" 
+            name="display_name" 
+            class="form-control" 
+            placeholder="e.g. Selvi Anbarasan / Rajesh Sharma" 
+            value="{{ submitted_name|default('') }}"
+            required
+            autocomplete="name"
+          >
+        </div>
+
+        <!-- USERNAME -->
+        <div class="form-group">
+          <label for="signup-username" class="form-label">
+            <strong>2. Choose Username</strong> <span class="required">*</span>
+          </label>
+          <input 
+            type="text" 
+            id="signup-username" 
+            name="username" 
+            class="form-control" 
+            placeholder="e.g. selvi_anbarasan" 
+            value="{{ submitted_username|default('') }}"
+            required 
+            autocomplete="username"
+          >
+          <span class="form-hint">Unique alphanumeric username (no spaces).</span>
+        </div>
+
+        <!-- EMAIL -->
+        <div class="form-group">
+          <label for="signup-email" class="form-label">
+            <strong>3. Email Address</strong> <span class="required">*</span>
+          </label>
+          <input 
+            type="email" 
+            id="signup-email" 
+            name="email" 
+            class="form-control" 
+            placeholder="Enter an email address you can access" 
+            value="{{ submitted_email|default('') }}"
+            required
+            autocomplete="email"
+          >
+          <span class="form-hint">Sign-in codes will be sent to this email address.</span>
+        </div>
+
+        <!-- PASSWORD -->
+        <div class="form-group">
+          <label for="signup-password" class="form-label">
+            <strong>4. Account Password (for security settings)</strong> <span class="required">*</span>
+          </label>
+          <input 
+            type="password" 
+            id="signup-password" 
+            name="password" 
+            class="form-control" 
+            placeholder="Choose a strong password (minimum 6 characters)" 
+            required 
+            autocomplete="new-password"
+          >
+          <span class="form-hint">Used for account security settings; normal sign-in uses the email one-time code.</span>
+        </div>
+
+        <!-- CONFIRM PASSWORD -->
+        <div class="form-group">
+          <label for="signup-confirm-password" class="form-label">
+            <strong>5. Confirm Password</strong> <span class="required">*</span>
+          </label>
+          <input 
+            type="password" 
+            id="signup-confirm-password" 
+            name="confirm_password" 
+            class="form-control" 
+            placeholder="Re-type your password" 
+            required 
+            autocomplete="new-password"
+          >
+        </div>
+
+        <button type="submit" class="btn-submit-login">
+          Create Account &amp; Send Verification Code →
+        </button>
+      </form>
+
+      <!-- SWITCH TO SIGN IN -->
+      <div class="auth-switch-box">
+        <p class="auth-switch-text">Already have an account?</p>
+        <a href="{{ url_for('login') }}" class="btn-auth-switch" id="link-sign-in">
+          🔐 Sign In with Existing Account →
+        </a>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

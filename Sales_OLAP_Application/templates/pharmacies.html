@@ -1,0 +1,407 @@
+{% extends "base.html" %}
+
+{% block title %}Pharmacy Finder & Nearby Shops{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  
+  <div class="page-header">
+    <div class="page-header-text">
+      <h2>🏥 Pharmacy Finder & OpenStreetMap Search</h2>
+      <p>Find pharmacies and dispensaries near any typed address, locality, town, or GPS location across India, with live OpenStreetMap spatial discovery and directions in both Google Maps and OpenStreetMap.</p>
+    </div>
+    <div class="page-header-badge">
+      <span class="badge badge-directory">OpenStreetMap + PharmaTrack Directory</span>
+    </div>
+  </div>
+
+  <!-- LOCATION ACCURACY & STOCK DISCLAIMER -->
+  <div class="alert-box alert-stock-notice">
+    <div class="alert-icon">ℹ️</div>
+    <div class="alert-body">
+      <strong>Stock & Availability Disclaimer:</strong>
+      An OpenStreetMap listing does <strong>not verify pharmacy licensing</strong>, opening hours, delivery, or guarantee that a medicine is in stock today.
+      Always telephone the dispensary or check their official online store link prior to traveling.
+    </div>
+  </div>
+
+  <!-- SEARCH & LOCALITY RESOLVER PANEL -->
+  <div class="search-panel-card">
+    <form action="{{ url_for('pharmacies') }}" method="GET" class="pharmacy-search-form" id="pharmacy-form">
+      <div class="pharmacy-search-row">
+        
+        <div class="search-input-group locality-group">
+          <label for="locality-input" class="form-label">
+            <strong>Enter Any Locality, Street Address, Town, or PIN Code:</strong>
+          </label>
+          <div class="input-with-actions">
+            <input 
+              type="text" 
+              id="locality-input" 
+              name="location" 
+              class="form-control" 
+              placeholder="e.g. Ayapakkam, Connaught Place, Koramangala, 600077, 110001, Bandra West..." 
+              value="{{ selected_location }}"
+              autocomplete="off"
+            >
+            <button type="button" id="btn-device-loc" class="btn-device-locate" title="Use current device GPS location">
+              📍 Use My Location
+            </button>
+          </div>
+          <span class="form-hint">Type any address across India (resolved dynamically via OpenStreetMap Nominatim on submit) or use device GPS. Typing clears prior coordinates.</span>
+        </div>
+
+        <div class="search-input-group medicine-filter-group">
+          <label for="pharmacy-radius" class="form-label">OpenStreetMap Search Radius:</label>
+          <select id="pharmacy-radius" name="radius" class="form-control" onchange="this.form.submit()">
+            {% for radius in [5000, 10000, 25000] %}
+              <option value="{{ radius }}" {{ 'selected' if selected_radius_meters == radius else '' }}>{{ radius // 1000 }} km</option>
+            {% endfor %}
+          </select>
+          <span class="form-hint">Select the geographic search boundary around your search center.</span>
+        </div>
+
+        <div class="search-input-group medicine-filter-group">
+          <label for="medicine-filter-select" class="form-label">Filter Local Directory by Medicine:</label>
+          <select id="medicine-filter-select" name="medicine" class="form-control" onchange="this.form.submit()">
+            <option value="">All Medicines / General Inventory</option>
+            {% for med in medicines_list %}
+              <option value="{{ med }}" {{ 'selected' if selected_medicine == med else '' }}>{{ med }}</option>
+            {% endfor %}
+          </select>
+          <span class="form-hint">Applies to the PharmaTrack verified store stock directory below.</span>
+        </div>
+
+        <input type="hidden" id="input-lat" name="lat" value="">
+        <input type="hidden" id="input-lon" name="lon" value="">
+
+        <div class="search-submit-group">
+          <button type="submit" class="btn-primary btn-search-go">Search Pharmacies</button>
+        </div>
+
+      </div>
+    </form>
+
+    <!-- RESOLVED LOCATION BANNER -->
+    <div class="resolved-location-strip">
+      <span class="loc-pin">📍</span>
+      <span class="loc-text">Search Center: <strong>{{ resolved_location }}</strong></span>
+      {% if location_valid %}<span class="loc-coords">[{{ "%.5f"|format(current_lat) }}, {{ "%.5f"|format(current_lon) }}]</span>{% endif %}
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       SECTION 1: LIVE OPENSTREETMAP PHARMACY RESULTS (MAP & CARDS)
+       ========================================================================= -->
+  <section class="live-places-panel" aria-labelledby="live-pharmacies-title">
+    <div class="live-places-heading">
+      <div>
+        <h3 id="live-pharmacies-title">🏥 Nearby Pharmacies from OpenStreetMap (Live Discovery)</h3>
+        <p>Live community-mapped pharmacies and chemists within <strong>{{ search_radius_km }} km</strong> of your search location. Sorted strictly by straight-line distance. Map listings do not verify medicine stock or delivery.</p>
+      </div>
+      <a class="btn-action btn-directions" href="{{ osm_location_url }}" target="_blank" rel="noopener noreferrer">View Search Area in OpenStreetMap ↗</a>
+    </div>
+
+    {% if places_error %}
+      <div class="live-places-message" role="status">
+        ⚠️ {{ places_error }}
+        {% if directory_pharmacies %}<strong>{{ directory_pharmacies|length }} saved PharmaTrack pharmacy listings are available in the separate directory section below.</strong>{% endif %}
+        You can also view the search area in OpenStreetMap.
+      </div>
+    {% elif not live_pharmacies and location_valid %}
+      <div class="live-places-message" role="status">
+        ℹ️ OpenStreetMap has no community-mapped pharmacy entries within <strong>{{ search_radius_km }} km</strong> of {{ resolved_location }}. 
+        You can expand your search radius above to 10 km or 25 km, or use device GPS.
+      </div>
+    {% endif %}
+
+    <!-- VIEW TOGGLE (MAP & LIST) -->
+    {% if location_valid and live_pharmacies %}
+    <div class="view-controls-bar">
+      <div class="result-count-label">
+        Found <strong>{{ live_pharmacies|length }}</strong> OpenStreetMap pharmacies within {{ search_radius_km }} km ({{ live_within_5km|length }} within 5 km, {{ live_beyond_5km|length }} beyond 5 km).
+      </div>
+      <div class="view-toggle-buttons">
+        <button type="button" class="btn-toggle active" id="btn-show-both" onclick="setViewMode('both')">🗺️ Map & List</button>
+        <button type="button" class="btn-toggle" id="btn-show-list" onclick="setViewMode('list')">📋 List Only</button>
+        <button type="button" class="btn-toggle" id="btn-show-map" onclick="setViewMode('map')">📍 Map Only</button>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- MAP & RESULTS CONTAINER -->
+    <div class="pharmacy-layout-container" id="pharmacy-layout">
+      
+      <!-- OPENSTREETMAP PREVIEW -->
+      <div class="map-column" id="map-column">
+        <div class="map-card">
+          <div class="map-header">
+            <h3>Interactive OpenStreetMap Pharmacy Map</h3>
+            <span class="map-legend">
+              <span class="legend-item"><span class="dot dot-origin"></span> Search Location</span>
+              <span class="legend-item"><span class="dot dot-nearby"></span> Mapped Pharmacy</span>
+            </span>
+          </div>
+          {% if location_valid %}
+          <div id="pharmacy-osm-map" class="leaflet-map" role="application" aria-label="OpenStreetMap showing nearby pharmacy results"></div>
+          {% else %}
+          <div class="live-places-message">Map will display once a valid location is submitted.</div>
+          {% endif %}
+          <p class="map-caption">© OpenStreetMap contributors. Straight-line distance computed from search coordinates. Confirm current inventory directly with the dispensary.</p>
+        </div>
+      </div>
+
+      <!-- PHARMACIES LIST COLUMN -->
+      <div class="list-column" id="list-column">
+        
+        <!-- GROUP 1: NEARBY PHARMACIES (<= 5 KM) -->
+        <div class="results-group group-nearby">
+          <div class="group-header">
+            <h3 class="group-title">
+              <span class="badge-group-nearby">Nearby Pharmacies</span>
+              <span class="group-sub">(Within 5.0 km radius)</span>
+            </h3>
+            <span class="group-count">{{ live_within_5km|length }} locations</span>
+          </div>
+
+          {% if live_within_5km %}
+          <div class="pharmacy-cards-stack">
+            {% for place in live_within_5km %}
+            <article class="live-place-card">
+              <div class="live-place-title-row">
+                <h4>{{ place.name }}</h4>
+                <span class="live-rank">#{{ loop.index }}</span>
+              </div>
+              {% if place.type_label %}<span class="live-place-type">{{ place.type_label }}</span>{% endif %}
+              <p class="live-place-address">📍 {{ place.address }}</p>
+              <p class="live-place-source">OpenStreetMap Live Data • <strong>{{ "%.2f"|format(place.distance_km) }} km away</strong></p>
+              <div class="live-place-actions">
+                <a class="btn-action btn-google-dir" href="{{ place.google_directions_url }}" target="_blank" rel="noopener noreferrer" title="Get turn-by-turn driving directions in Google Maps">
+                  🗺️ Directions in Google Maps ↗
+                </a>
+                <a class="btn-action btn-osm-dir" href="{{ place.osm_directions_url }}" target="_blank" rel="noopener noreferrer" title="Get driving directions in OpenStreetMap OSRM">
+                  🧭 Directions in OpenStreetMap ↗
+                </a>
+                <a class="live-place-map-link" href="{{ place.osm_url }}" target="_blank" rel="noopener noreferrer" title="Inspect node/way on OpenStreetMap">
+                  View place on OSM ↗
+                </a>
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="empty-group-box">
+            {% if places_error %}
+            <p>The live map service did not return pharmacy results. Use the separate PharmaTrack Project Directory below for its saved listings.</p>
+            {% else %}
+            <p>No community-mapped pharmacies found within the immediate 5.0 km radius of this location.</p>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- GROUP 2: MORE PHARMACIES IN SEARCH RADIUS (> 5 KM, UP TO SEARCH RADIUS) -->
+        {% if live_beyond_5km %}
+        <div class="results-group group-more">
+          <div class="group-header">
+            <h3 class="group-title">
+              <span class="badge-group-more">More Pharmacies in Search Area</span>
+              <span class="group-sub">(Beyond 5.0 km, up to {{ search_radius_km }} km)</span>
+            </h3>
+            <span class="group-count">{{ live_beyond_5km|length }} locations</span>
+          </div>
+
+          <div class="pharmacy-cards-stack">
+            {% for place in live_beyond_5km %}
+            <article class="live-place-card">
+              <div class="live-place-title-row">
+                <h4>{{ place.name }}</h4>
+                <span class="live-rank">#{{ loop.index + live_within_5km|length }}</span>
+              </div>
+              {% if place.type_label %}<span class="live-place-type">{{ place.type_label }}</span>{% endif %}
+              <p class="live-place-address">📍 {{ place.address }}</p>
+              <p class="live-place-source">OpenStreetMap Live Data • <strong>{{ "%.2f"|format(place.distance_km) }} km away</strong></p>
+              <div class="live-place-actions">
+                <a class="btn-action btn-google-dir" href="{{ place.google_directions_url }}" target="_blank" rel="noopener noreferrer" title="Get turn-by-turn driving directions in Google Maps">
+                  🗺️ Directions in Google Maps ↗
+                </a>
+                <a class="btn-action btn-osm-dir" href="{{ place.osm_directions_url }}" target="_blank" rel="noopener noreferrer" title="Get driving directions in OpenStreetMap OSRM">
+                  🧭 Directions in OpenStreetMap ↗
+                </a>
+                <a class="live-place-map-link" href="{{ place.osm_url }}" target="_blank" rel="noopener noreferrer">
+                  View place on OSM ↗
+                </a>
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       SECTION 2: PHARMATRACK PROJECT DIRECTORY & OWNER-REPORTED STOCK
+       ========================================================================= -->
+  <section class="directory-section-box" style="margin-top: 36px; padding-top: 24px; border-top: 2px dashed #cbd5e1;">
+    <div class="directory-heading-block">
+      <h3 class="directory-section-heading">📦 PharmaTrack Project Directory (Local Records & Store Stock Reports)</h3>
+      <p class="directory-section-note">
+        These records are maintained in the project’s local SQLite data warehouse (<code>dim_pharmacy</code>) and contain verified pharmacy profiles, franchise store pages, and owner-submitted stock reports with 48-hour staleness tracking. They are maintained separately from the live OpenStreetMap results above.
+      </p>
+    </div>
+
+    <!-- DIRECTORY GROUP 1: WITHIN 5.0 KM -->
+    <div class="results-group group-nearby" style="margin-top: 16px;">
+      <div class="group-header">
+        <h3 class="group-title">
+          <span class="badge-group-nearby">Nearby Directory Pharmacies</span>
+          <span class="group-sub">(Within 5.0 km radius)</span>
+        </h3>
+        <span class="group-count">{{ directory_within_5km|length }} locations</span>
+      </div>
+
+      {% if directory_within_5km %}
+      <div class="pharmacy-cards-stack">
+        {% for p in directory_within_5km %}
+          {% include "partials/pharmacy_card.html" %}
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-group-box">
+        <p>No project-directory pharmacies recorded within 5.0 km of this search location.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- DIRECTORY GROUP 2: BEYOND 5.0 KM -->
+    {% if directory_beyond_5km %}
+    <div class="results-group group-more" style="margin-top: 20px;">
+      <div class="group-header">
+        <h3 class="group-title">
+          <span class="badge-group-more">More Directory Pharmacies</span>
+          <span class="group-sub">(Beyond 5.0 km, sorted by distance)</span>
+        </h3>
+        <span class="group-count">{{ directory_beyond_5km|length }} locations</span>
+      </div>
+
+      <div class="pharmacy-cards-stack">
+        {% for p in directory_beyond_5km %}
+          {% include "partials/pharmacy_card.html" %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </section>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const pharmacyOrigin = {% if location_valid %}[{{ current_lat }}, {{ current_lon }}]{% else %}null{% endif %};
+  const pharmacyOsmPlaces = {{ live_pharmacies|tojson }};
+  const pharmacyMapNode = document.getElementById('pharmacy-osm-map');
+  let pharmacyMap;
+  if (pharmacyMapNode && pharmacyOrigin && window.L) {
+    pharmacyMap = L.map(pharmacyMapNode).setView(pharmacyOrigin, 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+    }).addTo(pharmacyMap);
+
+    // Search Location Pin
+    L.circleMarker(pharmacyOrigin, { radius: 8, color: '#0b7285', fillColor: '#0b7285', fillOpacity: 1 })
+      .addTo(pharmacyMap).bindPopup('<strong>📍 Search Center:</strong><br>{{ resolved_location }}');
+
+    const pharmacyBounds = [pharmacyOrigin];
+    pharmacyOsmPlaces.forEach(place => {
+      const point = [place.latitude, place.longitude];
+      const popupHtml = `
+        <div style="font-size: 13px; line-height: 1.45;">
+          <strong>${place.name}</strong><br>
+          <span style="color: #64748b; font-size: 11.5px;">📍 ${place.address}</span><br>
+          <span style="color: #087f5b; font-weight: 600;">📏 ${place.distance_km.toFixed(2)} km away</span>
+          <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
+            <a href="${place.google_directions_url}" target="_blank" rel="noopener noreferrer" style="color: #15803d; font-weight: 600; text-decoration: none;">🗺️ Google Maps Directions ↗</a>
+            <a href="${place.osm_directions_url}" target="_blank" rel="noopener noreferrer" style="color: #0369a1; font-weight: 600; text-decoration: none;">🧭 OpenStreetMap Directions ↗</a>
+          </div>
+        </div>
+      `;
+      L.circleMarker(point, { radius: 7, color: '#087f5b', fillColor: '#34d399', fillOpacity: 0.9 })
+        .addTo(pharmacyMap).bindPopup(popupHtml);
+      pharmacyBounds.push(point);
+    });
+
+    if (pharmacyBounds.length > 1) {
+      pharmacyMap.fitBounds(pharmacyBounds, { padding: [24, 24], maxZoom: 15 });
+    }
+  }
+
+  // Clear hidden GPS inputs when user types in the search box
+  const locInput = document.getElementById('locality-input');
+  const latInput = document.getElementById('input-lat');
+  const lonInput = document.getElementById('input-lon');
+
+  locInput.addEventListener('input', function() {
+    latInput.value = '';
+    lonInput.value = '';
+  });
+
+  // Device GPS Geolocation button
+  document.getElementById('btn-device-loc').addEventListener('click', function() {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser. Please enter your location manually.");
+      return;
+    }
+    this.innerText = "⏳ Requesting...";
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        latInput.value = pos.coords.latitude;
+        lonInput.value = pos.coords.longitude;
+        locInput.value = `Current Device Location`;
+        document.getElementById('pharmacy-form').submit();
+      },
+      err => {
+        alert("GPS access was denied or is unavailable. Please type your locality or address manually (e.g. Connaught Place, Ayapakkam, 600077).");
+        this.innerText = "📍 Use My Location";
+      },
+      { timeout: 10000 }
+    );
+  });
+
+  // View toggle modes (Map & List, List Only, Map Only)
+  function setViewMode(mode) {
+    const layout = document.getElementById('pharmacy-layout');
+    const mapCol = document.getElementById('map-column');
+    const listCol = document.getElementById('list-column');
+    
+    document.getElementById('btn-show-both').classList.remove('active');
+    document.getElementById('btn-show-list').classList.remove('active');
+    document.getElementById('btn-show-map').classList.remove('active');
+
+    if (mode === 'both') {
+      document.getElementById('btn-show-both').classList.add('active');
+      mapCol.style.display = 'block';
+      listCol.style.display = 'block';
+      layout.className = 'pharmacy-layout-container layout-both';
+      if (pharmacyMap) setTimeout(() => pharmacyMap.invalidateSize(), 0);
+    } else if (mode === 'list') {
+      document.getElementById('btn-show-list').classList.add('active');
+      mapCol.style.display = 'none';
+      listCol.style.display = 'block';
+      layout.className = 'pharmacy-layout-container layout-list-only';
+    } else if (mode === 'map') {
+      document.getElementById('btn-show-map').classList.add('active');
+      mapCol.style.display = 'block';
+      listCol.style.display = 'none';
+      layout.className = 'pharmacy-layout-container layout-map-only';
+      if (pharmacyMap) setTimeout(() => pharmacyMap.invalidateSize(), 0);
+    }
+  }
+</script>
+{% endblock %}

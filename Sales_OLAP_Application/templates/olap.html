@@ -1,0 +1,780 @@
+{% extends "base.html" %}
+
+{% block title %}Multidimensional OLAP Cube & Analytical Operations{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  
+  <div class="page-header">
+    <div class="page-header-text">
+      <h2>🧊 Multidimensional OLAP Cube & Analytical Operations</h2>
+      <p>Interactive 3D OLAP Cube with 360° mouse/touch rotation demonstrating Roll-up, Drill-down, Slice, Dice, and Pivot operations on historical pharmaceutical data.</p>
+    </div>
+    <div class="page-header-badge">
+      <span class="badge badge-olap">Online Analytical Processing (OLAP)</span>
+    </div>
+  </div>
+
+  <!-- OLAP OPERATIONS NAVIGATION TABS -->
+  <div class="olap-operations-tab-bar" role="tablist">
+    <button type="button" class="btn-op-tab active" id="tab-3d" onclick="setOlapView('3d')">
+      🧊 3D Interactive Cube
+    </button>
+    <button type="button" class="btn-op-tab" id="tab-rollup" onclick="setOlapView('rollup')">
+      🔼 Roll-up Operation
+    </button>
+    <button type="button" class="btn-op-tab" id="tab-drilldown" onclick="setOlapView('drilldown')">
+      🔽 Drill-down Operation
+    </button>
+    <button type="button" class="btn-op-tab" id="tab-slice" onclick="setOlapView('slice')">
+      🔪 Slice Operation
+    </button>
+    <button type="button" class="btn-op-tab" id="tab-dice" onclick="setOlapView('dice')">
+      🎲 Dice Operation
+    </button>
+    <button type="button" class="btn-op-tab" id="tab-pivot" onclick="setOlapView('pivot')">
+      🔄 Pivot / Rotate
+    </button>
+  </div>
+
+  <!-- CONTROL PANEL: MEASURES & DIMENSIONS -->
+  <div class="search-panel-card">
+    <div class="olap-config-header">
+      <span class="olap-config-title">⚙️ OLAP Hypercube Slicing & Metric Controls</span>
+      <span class="badge-fact-source">Data Source: fact_sales_expiry</span>
+    </div>
+
+    <div class="olap-controls-grid">
+      <!-- 1. MEASURE -->
+      <div class="olap-ctrl-card">
+        <div class="olap-ctrl-header">
+          <label for="measure-select" class="olap-ctrl-label">
+            <span>📊 Aggregate Measure</span>
+          </label>
+          <span class="ctrl-badge-measure">Metric</span>
+        </div>
+        <select id="measure-select" class="form-control" onchange="refreshOlapData()">
+          <option value="quantity" selected>Units Sold (Quantity)</option>
+          <option value="total_sales">Total Sales Volume (₹ INR)</option>
+          <option value="expired_stock">Expired Transactions Count</option>
+          <option value="avg_price">Average Unit Price (₹ INR)</option>
+        </select>
+      </div>
+
+      <!-- 2. DIMENSION X -->
+      <div class="olap-ctrl-card">
+        <div class="olap-ctrl-header">
+          <label for="dim-x-select" class="olap-ctrl-label">
+            <span>↔️ X-Axis Dimension</span>
+          </label>
+          <span class="ctrl-badge-x">Width</span>
+        </div>
+        <select id="dim-x-select" class="form-control" onchange="refreshOlapData()">
+          <option value="medicine" selected>Medicine Name (dim_product)</option>
+          <option value="category">Therapeutic Category (dim_category)</option>
+        </select>
+      </div>
+
+      <!-- 3. DIMENSION Y -->
+      <div class="olap-ctrl-card">
+        <div class="olap-ctrl-header">
+          <label for="dim-y-select" class="olap-ctrl-label">
+            <span>↕️ Y-Axis Dimension</span>
+          </label>
+          <span class="ctrl-badge-y">Height (Time)</span>
+        </div>
+        <select id="dim-y-select" class="form-control" onchange="refreshOlapData()">
+          <option value="quarter" selected>Year-Quarter (e.g. 2025-Q1)</option>
+          <option value="year">Calendar Year (e.g. 2025, 2026)</option>
+          <option value="month">Year-Month (e.g. 2025-January)</option>
+        </select>
+      </div>
+
+      <!-- 4. DIMENSION Z -->
+      <div class="olap-ctrl-card">
+        <div class="olap-ctrl-header">
+          <label for="dim-z-select" class="olap-ctrl-label">
+            <span>↗️ Z-Axis Dimension</span>
+          </label>
+          <span class="ctrl-badge-z">Depth (Geo)</span>
+        </div>
+        <select id="dim-z-select" class="form-control" onchange="refreshOlapData()">
+          <option value="region" selected>Geographic State (dim_region)</option>
+          <option value="distributor">Supply Chain / Chain</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Telemetry Status Strip with Layout Switcher -->
+    <div class="olap-telemetry-strip">
+      <div class="telemetry-chips-row">
+        <span class="telemetry-chip">📊 Metric: <strong id="telemetry-measure">Units Sold (Quantity)</strong></span>
+        <span class="telemetry-chip">🧊 Cube: <strong id="telemetry-dims">Medicine × Time (Quarter) × Geography</strong></span>
+        <span class="telemetry-chip">🕒 Synced: <span id="telemetry-time">Synchronized</span></span>
+      </div>
+      <div class="layout-switcher-group" aria-label="Layout mode">
+        <button type="button" class="btn-layout-toggle active" id="btn-layout-stacked" onclick="toggleCubeLayout('stacked')" title="Stacked full-width view">☰ Stacked View</button>
+        <button type="button" class="btn-layout-toggle" id="btn-layout-side" onclick="toggleCubeLayout('side')" title="Side-by-side view">⊞ Side-by-Side</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 1: 3D INTERACTIVE OLAP CUBE -->
+  <div id="view-3d-cube" class="olap-view-panel" style="display: block;">
+    <div class="cube-workspace-grid layout-stacked">
+      
+      <!-- 3D CUBE CANVAS CARD -->
+      <div class="cube-canvas-card">
+        <div class="cube-card-header">
+          <div class="cube-title-group">
+            <div class="cube-title-badge-row">
+              <h3>3D Rotatable Multidimensional OLAP Cube</h3>
+              <span class="badge badge-primary">Interactive 360° Geometry</span>
+            </div>
+            <p class="cube-subtitle">Click and drag with mouse (or swipe on touch) to rotate across all 3 axes. Hover or tap voxels to inspect values.</p>
+          </div>
+          <div class="cube-actions-toolbar" role="toolbar" aria-label="3D Cube Controls">
+            <button type="button" class="btn-cube-tool" id="btn-auto-rotate" onclick="toggleAutoRotate()" title="Toggle smooth continuous 360° rotation">▶ Auto-Rotate</button>
+            <div class="btn-group-step">
+              <button type="button" class="btn-cube-tool" onclick="zoomCube(0.85)" title="Zoom In (or Scroll Up)">🔍+ In</button>
+              <button type="button" class="btn-cube-tool" onclick="zoomCube(1.15)" title="Zoom Out (or Scroll Down)">🔍- Out</button>
+            </div>
+            <div class="btn-group-step">
+              <button type="button" class="btn-cube-tool" onclick="rotateCube(-15, 0)" title="Rotate Left">⟲ Left</button>
+              <button type="button" class="btn-cube-tool" onclick="rotateCube(15, 0)" title="Rotate Right">⟳ Right</button>
+              <button type="button" class="btn-cube-tool" onclick="rotateCube(0, -15)" title="Tilt Up">⬆ Up</button>
+              <button type="button" class="btn-cube-tool" onclick="rotateCube(0, 15)" title="Tilt Down">⬇ Down</button>
+            </div>
+            <button type="button" class="btn-cube-tool btn-reset-cube" onclick="resetCubeView()" title="Reset to default isometric angle">↺ Reset View</button>
+          </div>
+        </div>
+
+        <div class="cube-viewport-wrapper" style="position: relative;">
+          <canvas id="olapCanvas" width="700" height="480" style="display: block; width: 100%; height: 480px;"></canvas>
+          <div id="cube-tooltip" class="cube-floating-tooltip" style="display: none;"></div>
+          
+          <!-- EMPTY STATE WHEN FILTER YIELDS ZERO ROWS -->
+          <div id="cube-empty-state" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; background: #ffffff; padding: 24px 32px; border-radius: 10px; border: 1px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.08); z-index: 5;">
+            <div style="font-size: 38px; margin-bottom: 6px;">🧊</div>
+            <h4 style="margin: 0 0 6px; color: #1e293b; font-size: 16px;">No Multi-Dimensional Facts Found</h4>
+            <p style="margin: 0; font-size: 13px; color: #64748b; max-width: 340px;">No warehouse transactions match the selected dimension coordinates or measure filter. Try adjusting your filter selection above.</p>
+          </div>
+        </div>
+
+        <!-- CATEGORY COLOR PALETTE LEGEND -->
+        <div class="cube-category-legend-row" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 14px; background: #ffffff; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
+          <strong style="font-size: 12.5px; color: #334155;">Medicine Categories:</strong>
+          <span class="category-chip" style="display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; padding: 4px 8px; border-radius: 6px; background: #f0fdf4; border: 1px solid #bbf7d0;">
+            <span style="width: 12px; height: 12px; border-radius: 3px; background: #0d9488; display: inline-block;"></span>
+            <strong>Antibiotics</strong>
+          </span>
+          <span class="category-chip" style="display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; padding: 4px 8px; border-radius: 6px; background: #eff6ff; border: 1px solid #bfdbfe;">
+            <span style="width: 12px; height: 12px; border-radius: 3px; background: #2563eb; display: inline-block;"></span>
+            <strong>Analgesics & Antipyretics</strong>
+          </span>
+          <span class="category-chip" style="display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; padding: 4px 8px; border-radius: 6px; background: #f5f3ff; border: 1px solid #ddd6fe;">
+            <span style="width: 12px; height: 12px; border-radius: 3px; background: #7c3aed; display: inline-block;"></span>
+            <strong>Antidiabetic</strong>
+          </span>
+          <span class="category-chip" style="display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; padding: 4px 8px; border-radius: 6px; background: #fff7ed; border: 1px solid #fed7aa;">
+            <span style="width: 12px; height: 12px; border-radius: 3px; background: #ea580c; display: inline-block;"></span>
+            <strong>Hormone Preparations</strong>
+          </span>
+        </div>
+
+        <div class="cube-legend-bar">
+          <div class="legend-scale">
+            <span class="scale-label">Measure Density:</span>
+            <div class="scale-gradient"></div>
+            <div class="scale-ticks">
+              <span>0 (Low)</span>
+              <span>Mid</span>
+              <span id="scale-max">Max</span>
+            </div>
+          </div>
+          <div class="dimension-axes-legend">
+            <span class="axis-pill axis-x"><span class="axis-dot dot-x" style="background:#0d9488;"></span><strong>X-Axis:</strong> <span id="legend-x-name">Medicine</span></span>
+            <span class="axis-pill axis-y"><span class="axis-dot dot-y" style="background:#2563eb;"></span><strong>Y-Axis:</strong> <span id="legend-y-name">Quarter</span></span>
+            <span class="axis-pill axis-z"><span class="axis-dot dot-z" style="background:#7c3aed;"></span><strong>Z-Axis:</strong> <span id="legend-z-name">Region</span></span>
+          </div>
+        </div>
+
+        <!-- KEYBOARD & GESTURE NAVIGATION GUIDE -->
+        <div style="background: #f8fafc; padding: 6px 14px; font-size: 11.5px; color: #64748b; border-top: 1px solid #e2e8f0; display: flex; gap: 14px; flex-wrap: wrap;">
+          <span>🖱️ <strong>Mouse:</strong> Left Drag = Rotate 360° | Scroll = Zoom | Right Drag = Pan</span>
+          <span>📱 <strong>Touch:</strong> 1-Finger Drag = Rotate | Pinch = Zoom</span>
+          <span>⌨️ <strong>Keys:</strong> Arrows = Orbit | +/- = Zoom | Space = Auto-Rotate | R = Reset</span>
+        </div>
+      </div>
+
+      <!-- SYNCHRONIZED 2D ACCESSIBLE ALTERNATIVE -->
+      <div class="pivot-alternative-card">
+        <div class="pivot-card-header">
+          <div class="pivot-title-group">
+            <h3>Synchronized 2D Cross-Tabulation Pivot Table</h3>
+            <p class="pivot-desc">Full 2D tabular cross-tabulation of current X and Y dimensions aggregated across all Z slices.</p>
+          </div>
+          <span class="badge badge-accessible">WCAG AA Accessible Alternative</span>
+        </div>
+
+        <div class="table-responsive pivot-table-box">
+          <table class="data-table pivot-table" id="accessible-pivot-table">
+            <thead>
+              <tr id="pivot-thead-tr">
+                <th class="sticky-col">Time / Period</th>
+                <!-- Populated dynamically -->
+              </tr>
+            </thead>
+            <tbody id="pivot-tbody">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="cell-inspector-card" id="cell-inspector">
+          <h4>📍 Coordinate Inspection</h4>
+          <p id="inspector-text">Hover over any 3D voxel or click any table cell above to inspect multi-dimensional coordinates.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- VIEW 2: ROLL-UP DEMONSTRATION -->
+  <div id="view-rollup" class="olap-view-panel" style="display: none;">
+    <div class="operation-demo-card">
+      <div class="op-header">
+        <span class="op-badge">OLAP Concept 1</span>
+        <h3>🔼 Roll-up (Aggregation Upward in Dimension Hierarchy)</h3>
+      </div>
+      <p class="op-explanation">
+        <strong>Roll-up</strong> summarizes detailed transaction data by climbing up a concept hierarchy.
+        For example: aggregating from daily transactions $\rightarrow$ Month $\rightarrow$ Quarter $\rightarrow$ Year,
+        or climbing from specific Medicines $\rightarrow$ Therapeutic Categories.
+      </p>
+
+      <div class="demo-controls-bar">
+        <label>Choose Roll-up Granularity:</label>
+        <div class="btn-group-toggle">
+          <button type="button" class="btn-op-choice active" onclick="loadRollup('month')">Month Level</button>
+          <button type="button" class="btn-op-choice" onclick="loadRollup('quarter')">Quarter Level</button>
+          <button type="button" class="btn-op-choice" onclick="loadRollup('year')">Year Level</button>
+          <button type="button" class="btn-op-choice" onclick="loadRollup('category')">Category Hierarchy</button>
+        </div>
+      </div>
+
+      <div class="demo-chart-container">
+        <canvas id="rollupChart" height="240"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 3: DRILL-DOWN DEMONSTRATION -->
+  <div id="view-drilldown" class="olap-view-panel" style="display: none;">
+    <div class="operation-demo-card">
+      <div class="op-header">
+        <span class="op-badge">OLAP Concept 2</span>
+        <h3>🔽 Drill-down (Navigating to Greater Granular Detail)</h3>
+      </div>
+      <p class="op-explanation">
+        <strong>Drill-down</strong> is the reverse of roll-up. It decomposes higher-level summary aggregates into finer details,
+        stepping from Year $\rightarrow$ Quarter $\rightarrow$ Month $\rightarrow$ Day, or from State $\rightarrow$ District $\rightarrow$ Pharmacy location.
+      </p>
+
+      <div class="demo-controls-bar">
+        <label>Drill Target Year:</label>
+        <select id="drill-year-select" class="form-control inline-select" onchange="loadDrilldown()">
+          {% for y in years %}
+            <option value="{{ y }}">{{ y }}</option>
+          {% endfor %}
+        </select>
+        <label>Decompose into:</label>
+        <select id="drill-level-select" class="form-control inline-select" onchange="loadDrilldown()">
+          <option value="quarter" selected>Quarterly Breakout</option>
+          <option value="month">Monthly Breakout</option>
+        </select>
+      </div>
+
+      <div class="demo-chart-container">
+        <canvas id="drilldownChart" height="240"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 4: SLICE DEMONSTRATION -->
+  <div id="view-slice" class="olap-view-panel" style="display: none;">
+    <div class="operation-demo-card">
+      <div class="op-header">
+        <span class="op-badge">OLAP Concept 3</span>
+        <h3>🔪 Slice (Selecting One Dimension Value)</h3>
+      </div>
+      <p class="op-explanation">
+        A <strong>Slice</strong> creates a 2D sub-cube by fixing exactly one dimension to a single constant value
+        (e.g., fixing <code>Region = 'Tamil Nadu'</code> or <code>Medicine = 'Paracetamol'</code>).
+      </p>
+
+      <div class="demo-controls-bar">
+        <label>Slice Dimension:</label>
+        <select id="slice-dim-select" class="form-control inline-select" onchange="updateSliceValues()">
+          <option value="region">Region (State)</option>
+          <option value="medicine">Medicine</option>
+        </select>
+        <label>Fix Value to:</label>
+        <select id="slice-val-select" class="form-control inline-select" onchange="loadSlice()">
+          <!-- Populated dynamically -->
+        </select>
+      </div>
+
+      <div class="demo-chart-container">
+        <canvas id="sliceChart" height="240"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 5: DICE DEMONSTRATION -->
+  <div id="view-dice" class="olap-view-panel" style="display: none;">
+    <div class="operation-demo-card">
+      <div class="op-header">
+        <span class="op-badge">OLAP Concept 4</span>
+        <h3>🎲 Dice (Filtering Across Multiple Dimensions Simultaneously)</h3>
+      </div>
+      <p class="op-explanation">
+        A <strong>Dice</strong> operation extracts a smaller sub-cube by applying conditional filters on two or more dimensions
+        simultaneously (e.g. <code>Region IN ('Tamil Nadu', 'Karnataka')</code> AND <code>Category IN ('Tablet', 'Capsule')</code> AND <code>Year = '2025'</code>).
+      </p>
+
+      <div class="dice-selection-grid">
+        <div class="dice-col">
+          <label>Filter States:</label>
+          <div class="checkbox-group" id="dice-states">
+            {% for r in regions %}
+              <label><input type="checkbox" value="{{ r }}" checked onchange="loadDice()"> {{ r }}</label>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="dice-col">
+          <label>Filter Categories:</label>
+          <div class="checkbox-group" id="dice-categories">
+            {% for c in categories %}
+              <label><input type="checkbox" value="{{ c }}" checked onchange="loadDice()"> {{ c }}</label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="demo-chart-container">
+        <canvas id="diceChart" height="240"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 6: PIVOT / ROTATE DEMONSTRATION -->
+  <div id="view-pivot" class="olap-view-panel" style="display: none;">
+    <div class="operation-demo-card">
+      <div class="op-header">
+        <span class="op-badge">OLAP Concept 5</span>
+        <h3>🔄 Pivot / Rotate (Rearranging Dimensional Orientation)</h3>
+      </div>
+      <p class="op-explanation">
+        <strong>Pivot (or Rotate)</strong> reorients the multidimensional axes. It swaps row dimensions into columns
+        or brings the Z-depth dimension into row positions, allowing analysts to view relationships from an alternate perspective.
+      </p>
+
+      <div class="demo-controls-bar">
+        <label>Swap Orientation:</label>
+        <div class="btn-group-toggle">
+          <button type="button" class="btn-op-choice active" onclick="swapPivotOrientation('med_time')">Rows: Medicine | Cols: Quarter</button>
+          <button type="button" class="btn-op-choice" onclick="swapPivotOrientation('time_med')">Rows: Quarter | Cols: Medicine</button>
+          <button type="button" class="btn-op-choice" onclick="swapPivotOrientation('region_med')">Rows: Region | Cols: Medicine</button>
+        </div>
+      </div>
+
+      <div class="table-responsive pivot-table-box">
+        <table class="data-table pivot-table" id="swapped-pivot-table">
+          <thead>
+            <tr id="swap-thead-tr"></tr>
+          </thead>
+          <tbody id="swap-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- Three.js r128 3D Engine & OrbitControls (Local Offline Bundled) -->
+<script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/OrbitControls.js') }}"></script>
+<script src="{{ url_for('static', filename='js/olap_cube.js') }}"></script>
+<script>
+  let activeOlapData = null;
+  let chartInstances = {};
+
+  function setOlapView(viewName) {
+    const views = ['3d', 'rollup', 'drilldown', 'slice', 'dice', 'pivot'];
+    views.forEach(v => {
+      const panel = document.getElementById(`view-${v === '3d' ? '3d-cube' : v}`);
+      const tab = document.getElementById(`tab-${v}`);
+      if (panel) panel.style.display = (v === viewName) ? 'block' : 'none';
+      if (tab) tab.classList.toggle('active', v === viewName);
+    });
+
+    if (viewName === '3d') {
+      // Defer init so panel display:block has taken effect and dimensions are correct
+      setTimeout(() => {
+        window.initOlapCube();
+        if (activeOlapData) window.renderCubeCanvas(activeOlapData);
+      }, 50);
+    } else if (viewName === 'rollup') {
+      loadRollup('quarter');
+    } else if (viewName === 'drilldown') {
+      loadDrilldown();
+    } else if (viewName === 'slice') {
+      updateSliceValues();
+    } else if (viewName === 'dice') {
+      loadDice();
+    } else if (viewName === 'pivot') {
+      swapPivotOrientation('med_time');
+    }
+  }
+
+  function refreshOlapData() {
+    const measure = document.getElementById('measure-select').value;
+    const dimX = document.getElementById('dim-x-select').value;
+    const dimY = document.getElementById('dim-y-select').value;
+    const dimZ = document.getElementById('dim-z-select').value;
+
+    const measureText = document.getElementById('measure-select').selectedOptions[0].text;
+    document.getElementById('telemetry-measure').innerText = measureText;
+    const legendMeasureEl = document.getElementById('legend-measure-name');
+    if (legendMeasureEl) legendMeasureEl.innerText = measureText;
+
+    const dimXText = document.getElementById('dim-x-select').selectedOptions[0].text.split(' ')[0];
+    const dimYText = document.getElementById('dim-y-select').selectedOptions[0].text.split(' ')[0];
+    const dimZText = document.getElementById('dim-z-select').selectedOptions[0].text.split(' ')[0];
+
+    document.getElementById('legend-x-name').innerText = dimXText;
+    document.getElementById('legend-y-name').innerText = dimYText;
+    document.getElementById('legend-z-name').innerText = dimZText;
+
+    fetch(`/api/olap/data?measure=${measure}&dim_x=${dimX}&dim_y=${dimY}&dim_z=${dimZ}`)
+      .then(res => res.json())
+      .then(data => {
+        activeOlapData = data;
+        document.getElementById('telemetry-time').innerText = data.timestamp;
+
+        // Render 3D Three.js WebGL Cube
+        if (window.renderCubeCanvas) {
+          window.renderCubeCanvas(data);
+        }
+
+        // Render 2D Pivot Table
+        renderPivotTable(data);
+      })
+      .catch(err => {
+        console.error("Failed fetching OLAP data:", err);
+      });
+  }
+
+  function renderPivotTable(data) {
+    const theadTr = document.getElementById('pivot-thead-tr');
+    const tbody = document.getElementById('pivot-tbody');
+    theadTr.innerHTML = '<th class="sticky-col">Time / Period</th>';
+    tbody.innerHTML = '';
+
+    const xLabels = data.x_labels || [];
+    const yLabels = data.y_labels || [];
+    const isPrice = data.measure === 'avg_price';
+    const isCurrency = data.measure === 'total_sales' || isPrice;
+
+    // Table Column Headers (Dimensions + Row Total)
+    xLabels.forEach(x => {
+      const th = document.createElement('th');
+      th.innerText = x;
+      theadTr.appendChild(th);
+    });
+    const thTotal = document.createElement('th');
+    thTotal.innerHTML = '<strong>Row Total</strong>';
+    thTotal.style.background = '#e2e8f0';
+    theadTr.appendChild(thTotal);
+
+    const colTotals = {};
+    xLabels.forEach(x => colTotals[x] = 0);
+    let grandTotal = 0;
+
+    // Table Rows (Y-axis periods)
+    yLabels.forEach(y => {
+      const tr = document.createElement('tr');
+      const tdLabel = document.createElement('td');
+      tdLabel.className = 'sticky-col';
+      tdLabel.innerHTML = `<strong>${y}</strong>`;
+      tr.appendChild(tdLabel);
+
+      let rowSum = 0;
+      xLabels.forEach(x => {
+        const matches = (data.cells || []).filter(c => c.x === x && c.y === y);
+        const total = matches.reduce((acc, c) => acc + c.v, 0);
+        rowSum += total;
+        colTotals[x] += total;
+
+        const td = document.createElement('td');
+        const formatted = total > 0
+          ? (isPrice ? `₹${total.toFixed(2)}` : (isCurrency ? `₹${Math.round(total).toLocaleString()}` : Math.round(total).toLocaleString()))
+          : '-';
+        td.innerText = formatted;
+        td.title = `Click to inspect: ${x} in ${y} (${formatted})`;
+
+        td.onclick = () => {
+          document.getElementById('inspector-text').innerHTML = `
+            <strong>Selected Coordinate:</strong><br>
+            • Attribute (X): <strong style="color: #0d9488;">${x}</strong><br>
+            • Period (Y): <strong style="color: #2563eb;">${y}</strong><br>
+            • Aggregated (${data.measure}): <strong style="color: #0f172a; font-size: 14px;">${formatted}</strong>
+          `;
+        };
+        tr.appendChild(td);
+      });
+
+      grandTotal += rowSum;
+      const tdRowTotal = document.createElement('td');
+      tdRowTotal.style.background = '#f8fafc';
+      tdRowTotal.style.fontWeight = '700';
+      tdRowTotal.innerText = isPrice
+        ? `₹${(rowSum / Math.max(xLabels.length, 1)).toFixed(2)}`
+        : (isCurrency ? `₹${Math.round(rowSum).toLocaleString()}` : Math.round(rowSum).toLocaleString());
+      tr.appendChild(tdRowTotal);
+
+      tbody.appendChild(tr);
+    });
+
+    // Summary Row (Column Totals)
+    const trSummary = document.createElement('tr');
+    trSummary.style.background = '#f1f5f9';
+    trSummary.style.fontWeight = '700';
+    trSummary.style.borderTop = '2px solid #cbd5e1';
+
+    const tdSummaryLabel = document.createElement('td');
+    tdSummaryLabel.className = 'sticky-col';
+    tdSummaryLabel.style.background = '#e2e8f0';
+    tdSummaryLabel.innerHTML = '<strong>Total / Aggregate</strong>';
+    trSummary.appendChild(tdSummaryLabel);
+
+    xLabels.forEach(x => {
+      const tdColTotal = document.createElement('td');
+      tdColTotal.innerText = isPrice
+        ? `₹${(colTotals[x] / Math.max(yLabels.length, 1)).toFixed(2)}`
+        : (isCurrency ? `₹${Math.round(colTotals[x]).toLocaleString()}` : Math.round(colTotals[x]).toLocaleString());
+      trSummary.appendChild(tdColTotal);
+    });
+
+    const tdGrandTotal = document.createElement('td');
+    tdGrandTotal.style.background = '#e2e8f0';
+    tdGrandTotal.style.color = '#0d9488';
+    tdGrandTotal.innerText = isPrice
+      ? `₹${(grandTotal / Math.max(xLabels.length * yLabels.length, 1)).toFixed(2)}`
+      : (isCurrency ? `₹${Math.round(grandTotal).toLocaleString()}` : Math.round(grandTotal).toLocaleString());
+    trSummary.appendChild(tdGrandTotal);
+
+    tbody.appendChild(trSummary);
+  }
+
+  // --- OPERATION 1: ROLLUP ---
+  function loadRollup(granularity) {
+    if (!activeOlapData) return;
+    const ctx = document.getElementById('rollupChart').getContext('2d');
+    if (chartInstances.rollup) chartInstances.rollup.destroy();
+
+    const grouped = {};
+    activeOlapData.cells.forEach(c => {
+      let key = c.y;
+      if (granularity === 'year') {
+        key = c.y.split('-')[0];
+      } else if (granularity === 'category') {
+        key = c.x;
+      }
+      grouped[key] = (grouped[key] || 0) + c.v;
+    });
+
+    chartInstances.rollup = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: Object.keys(grouped),
+        datasets: [{
+          label: `Roll-up Aggregation (${granularity.toUpperCase()})`,
+          data: Object.values(grouped),
+          backgroundColor: '#0d9488',
+          borderRadius: 6
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+  }
+
+  // --- OPERATION 2: DRILLDOWN ---
+  function loadDrilldown() {
+    const year = document.getElementById('drill-year-select').value;
+    const ctx = document.getElementById('drilldownChart').getContext('2d');
+    if (chartInstances.drilldown) chartInstances.drilldown.destroy();
+
+    const matches = activeOlapData.cells.filter(c => c.y.startsWith(year));
+    const quarters = {};
+    matches.forEach(c => {
+      quarters[c.y] = (quarters[c.y] || 0) + c.v;
+    });
+
+    chartInstances.drilldown = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: Object.keys(quarters).sort(),
+        datasets: [{
+          label: `Drill-down for Year ${year}`,
+          data: Object.values(quarters),
+          borderColor: '#0284c7',
+          backgroundColor: '#0284c720',
+          fill: true,
+          tension: 0.3
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+  }
+
+  // --- OPERATION 3: SLICE ---
+  function updateSliceValues() {
+    const dim = document.getElementById('slice-dim-select').value;
+    const valSelect = document.getElementById('slice-val-select');
+    valSelect.innerHTML = '';
+    const items = dim === 'region' ? activeOlapData.z_labels : activeOlapData.x_labels;
+    items.forEach(it => {
+      const opt = document.createElement('option');
+      opt.value = it;
+      opt.innerText = it;
+      valSelect.appendChild(opt);
+    });
+    loadSlice();
+  }
+
+  function loadSlice() {
+    const dim = document.getElementById('slice-dim-select').value;
+    const val = document.getElementById('slice-val-select').value;
+    const ctx = document.getElementById('sliceChart').getContext('2d');
+    if (chartInstances.slice) chartInstances.slice.destroy();
+
+    const matches = activeOlapData.cells.filter(c => dim === 'region' ? c.z === val : c.x === val);
+    const byTime = {};
+    matches.forEach(c => {
+      byTime[c.y] = (byTime[c.y] || 0) + c.v;
+    });
+
+    chartInstances.slice = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: Object.keys(byTime).sort(),
+        datasets: [{
+          label: `Slice Result: ${dim.toUpperCase()} = "${val}"`,
+          data: Object.values(byTime),
+          backgroundColor: '#7c3aed',
+          borderRadius: 6
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+  }
+
+  // --- OPERATION 4: DICE ---
+  function loadDice() {
+    const states = Array.from(document.querySelectorAll('#dice-states input:checked')).map(el => el.value);
+    const ctx = document.getElementById('diceChart').getContext('2d');
+    if (chartInstances.dice) chartInstances.dice.destroy();
+
+    const matches = activeOlapData.cells.filter(c => states.includes(c.z));
+    const grouped = {};
+    matches.forEach(c => {
+      grouped[c.x] = (grouped[c.x] || 0) + c.v;
+    });
+
+    chartInstances.dice = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: Object.keys(grouped),
+        datasets: [{
+          label: `Dice Selection: ${states.length} states combined`,
+          data: Object.values(grouped),
+          backgroundColor: '#ea580c',
+          borderRadius: 6
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+  }
+
+  // --- OPERATION 5: PIVOT ---
+  function swapPivotOrientation(mode) {
+    const thead = document.getElementById('swap-thead-tr');
+    const tbody = document.getElementById('swap-tbody');
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
+    if (!activeOlapData) return;
+
+    if (mode === 'med_time') {
+      thead.innerHTML = '<th>Medicine</th>' + activeOlapData.y_labels.map(y => `<th>${y}</th>`).join('');
+      activeOlapData.x_labels.forEach(x => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><strong>${x}</strong></td>` + activeOlapData.y_labels.map(y => {
+          const total = activeOlapData.cells.filter(c => c.x === x && c.y === y).reduce((a, b) => a + b.v, 0);
+          return `<td>${Math.round(total).toLocaleString()}</td>`;
+        }).join('');
+        tbody.appendChild(tr);
+      });
+    } else if (mode === 'time_med') {
+      thead.innerHTML = '<th>Quarter</th>' + activeOlapData.x_labels.map(x => `<th>${x}</th>`).join('');
+      activeOlapData.y_labels.forEach(y => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><strong>${y}</strong></td>` + activeOlapData.x_labels.map(x => {
+          const total = activeOlapData.cells.filter(c => c.x === x && c.y === y).reduce((a, b) => a + b.v, 0);
+          return `<td>${Math.round(total).toLocaleString()}</td>`;
+        }).join('');
+        tbody.appendChild(tr);
+      });
+    } else if (mode === 'region_med') {
+      thead.innerHTML = '<th>Region (State)</th>' + activeOlapData.x_labels.map(x => `<th>${x}</th>`).join('');
+      activeOlapData.z_labels.forEach(z => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><strong>${z}</strong></td>` + activeOlapData.x_labels.map(x => {
+          const total = activeOlapData.cells.filter(c => c.z === z && c.x === x).reduce((a, b) => a + b.v, 0);
+          return `<td>${Math.round(total).toLocaleString()}</td>`;
+        }).join('');
+        tbody.appendChild(tr);
+      });
+    }
+  }
+
+  function toggleCubeLayout(mode) {
+    const grid = document.querySelector('.cube-workspace-grid');
+    const btnSide = document.getElementById('btn-layout-side');
+    const btnStacked = document.getElementById('btn-layout-stacked');
+    if (!grid) return;
+    if (mode === 'stacked') {
+      grid.classList.add('layout-stacked');
+      if (btnSide) btnSide.classList.remove('active');
+      if (btnStacked) btnStacked.classList.add('active');
+    } else {
+      grid.classList.remove('layout-stacked');
+      if (btnSide) btnSide.classList.add('active');
+      if (btnStacked) btnStacked.classList.remove('active');
+    }
+    if (window.resizeOlapCanvas) window.resizeOlapCanvas();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Defer OLAP init so the flex container has painted and clientWidth is accurate
+    setTimeout(() => {
+      if (window.initOlapCube) window.initOlapCube();
+      refreshOlapData();
+    }, 200);
+  });
+</script>
+{% endblock %}

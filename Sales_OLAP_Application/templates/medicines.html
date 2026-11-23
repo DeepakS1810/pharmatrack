@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Medicine Search & Formulary Catalog{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  
+  <div class="page-header">
+    <div class="page-header-text">
+      <h2>🔍 Medicine Search & Formulary Intelligence</h2>
+      <p>Search essential medicines by brand, active ingredient, strength, or dosage form from authorized formulary catalogs.</p>
+    </div>
+    <div class="page-header-badge">
+      <span class="badge badge-catalog">National Formulary Reference</span>
+    </div>
+  </div>
+
+  <!-- CLINICAL ADVISORY & DISCLAIMER BANNER -->
+  <div class="alert-box alert-clinical">
+    <div class="alert-icon">🩺</div>
+    <div class="alert-body">
+      <strong>Clinical & Pharmacological Advisory:</strong>
+      PharmaTrack DW is an educational data warehouse application. It does <strong>not</strong> diagnose medical conditions,
+      recommend medications, suggest clinical substitutions, or prescribe dosages. Always consult a qualified physician,
+      registered medical clinician, or licensed pharmacist for treatment decisions.
+    </div>
+  </div>
+
+  <!-- SEARCH & AUTOCOMPLETE CONTROL PANEL -->
+  <div class="search-panel-card">
+    <form action="{{ url_for('medicines') }}" method="GET" class="filter-form" id="med-search-form">
+      <div class="search-row-primary">
+        <div class="autocomplete-wrapper">
+          <label for="medicine-search-input" class="form-label">
+            <strong>Search Medicine Name, Active Ingredient, or Brand:</strong>
+          </label>
+          <div class="input-with-clear">
+            <input 
+              type="text" 
+              id="medicine-search-input" 
+              name="q" 
+              class="form-control form-control-lg" 
+              placeholder="e.g. Paracetamol, Amoxicillin, Dolo 650, Augmentin, Glycomet..." 
+              value="{{ selected_q }}"
+              autocomplete="off"
+            >
+            <div id="autocomplete-suggestions" class="autocomplete-dropdown" style="display: none;"></div>
+          </div>
+          <span class="form-hint">Type 2 or more letters to view instant autocomplete suggestions.</span>
+        </div>
+
+        <button type="submit" class="btn-primary btn-search-go">Search Formulary</button>
+        {% if selected_q or selected_category or selected_form %}
+          <a href="{{ url_for('medicines') }}" class="btn-secondary btn-search-reset">Reset Filters</a>
+        {% endif %}
+      </div>
+
+      <!-- MULTI-ATTRIBUTE FILTERS -->
+      <div class="filter-row-secondary">
+        <div class="filter-item">
+          <label for="category-select" class="form-label">Therapeutic Category:</label>
+          <select id="category-select" name="category" class="form-control" onchange="this.form.submit()">
+            <option value="">All Categories ({{ categories|length }})</option>
+            {% for cat in categories %}
+              <option value="{{ cat }}" {{ 'selected' if selected_category == cat else '' }}>{{ cat }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="filter-item">
+          <label for="dosage-select" class="form-label">Dosage Form:</label>
+          <select id="dosage-select" name="dosage_form" class="form-control" onchange="this.form.submit()">
+            <option value="">All Dosage Forms ({{ dosage_forms|length }})</option>
+            {% for df in dosage_forms %}
+              <option value="{{ df }}" {{ 'selected' if selected_form == df else '' }}>{{ df }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="filter-item filter-stats">
+          <span class="stat-count">{{ products|length }}</span>
+          <span class="stat-label">Formulations Found</span>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- MEDICINES CATALOG GRID / LIST -->
+  {% if products %}
+  <div class="medicines-grid">
+    {% for p in products %}
+    <div class="medicine-card">
+      <div class="med-card-header">
+        <div class="med-title-group">
+          <h3 class="med-name">{{ p.drug_name }}</h3>
+          <span class="badge badge-form badge-form-{{ p.dosage_form|lower }}">{{ p.dosage_form }}</span>
+        </div>
+        <span class="badge badge-schedule">{{ p.schedule_type }}</span>
+      </div>
+
+      <div class="med-card-body">
+        <div class="med-field">
+          <span class="field-label">Active Ingredient:</span>
+          <span class="field-value active-ingredient"><strong>{{ p.active_ingredient }}</strong></span>
+        </div>
+
+        <div class="med-field">
+          <span class="field-label">Market Brands:</span>
+          <span class="field-value brand-tags">
+            {% for brand in p.brand_examples.split(',') %}
+              <span class="brand-pill">{{ brand.strip() }}</span>
+            {% endfor %}
+          </span>
+        </div>
+
+        <div class="med-field-inline">
+          <div class="inline-col">
+            <span class="field-label">Strength:</span>
+            <span class="field-value badge-strength">{{ p.standard_strength }}</span>
+          </div>
+          <div class="inline-col">
+            <span class="field-label">Therapeutic Class:</span>
+            <span class="field-value">{{ p.category }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="med-card-footer">
+        <a href="{{ url_for('pharmacies', medicine=p.drug_name) }}" class="btn-check-availability" title="Check pharmacies carrying {{ p.drug_name }}">
+          📍 Check Nearby Pharmacies →
+        </a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state-card">
+    <div class="empty-icon">🔎</div>
+    <h3>No Matching Medicines Found</h3>
+    <p>No formulations matched your query "<strong>{{ selected_q }}</strong>" with the selected filters.</p>
+    <div class="empty-actions">
+      <a href="{{ url_for('medicines') }}" class="btn-primary">View Full Formulary</a>
+    </div>
+    <div class="catalog-import-info">
+      <h4>Need to import an external medicine catalog?</h4>
+      <p>Developers can load legitimate national formularies (CDSCO/NLEM CSV or JSON) into <code>dim_product</code> via the CLI:</p>
+      <code>python import_catalog.py &lt;path_to_catalog.csv&gt;</code>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // Autocomplete implementation
+  const searchInput = document.getElementById('medicine-search-input');
+  const suggestionsBox = document.getElementById('autocomplete-suggestions');
+  let debounceTimer;
+
+  searchInput.addEventListener('input', function() {
+    clearTimeout(debounceTimer);
+    const val = this.value.trim();
+    if (val.length < 2) {
+      suggestionsBox.style.display = 'none';
+      suggestionsBox.innerHTML = '';
+      return;
+    }
+
+    debounceTimer = setTimeout(() => {
+      fetch(`/api/medicines/autocomplete?term=${encodeURIComponent(val)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.length === 0) {
+            suggestionsBox.innerHTML = '<div class="autocomplete-item disabled">No matching medicines found</div>';
+          } else {
+            suggestionsBox.innerHTML = data.map(item => `
+              <div class="autocomplete-item" onclick="selectMedicine('${item.drug_name}')">
+                <div class="auto-main"><strong>${item.drug_name}</strong> <span class="badge-form-small">${item.form}</span></div>
+                <div class="auto-sub">${item.active_ingredient} | Brands: ${item.brand_examples}</div>
+              </div>
+            `).join('');
+          }
+          suggestionsBox.style.display = 'block';
+        })
+        .catch(err => console.error(err));
+    }, 250);
+  });
+
+  function selectMedicine(name) {
+    searchInput.value = name;
+    suggestionsBox.style.display = 'none';
+    document.getElementById('med-search-form').submit();
+  }
+
+  document.addEventListener('click', function(e) {
+    if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
+      suggestionsBox.style.display = 'none';
+    }
+  });
+</script>
+{% endblock %}

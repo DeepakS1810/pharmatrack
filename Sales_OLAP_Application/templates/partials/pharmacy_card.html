@@ -1,0 +1,81 @@
+<div class="pharmacy-card {{ 'pharmacy-card-nearby' if p.distance_km <= 5.0 else '' }}">
+  <div class="pharm-card-header">
+    <div class="pharm-title-block">
+      <h4 class="pharm-name">{{ p.name }}</h4>
+      <span class="pharm-chain-badge">{{ p.chain }}</span>
+    </div>
+    <div class="pharm-distance-tag">
+      <span class="dist-icon">📏</span>
+      <span class="dist-number">{{ p.distance_km }}</span>
+      <span class="dist-unit">km away</span>
+    </div>
+  </div>
+
+  <div class="pharm-card-body">
+    <!-- Status Badge -->
+    <div class="pharm-status-row">
+      <span class="status-badge {{ p.status_badge }}">{{ p.availability_status }}</span>
+      {% if p.is_stale %}
+        <span class="badge-stale" title="This stock update was submitted more than 7 days ago">⚠️ Stale Update</span>
+      {% endif %}
+    </div>
+    <p class="status-note-text">{{ p.status_note }}</p>
+
+    <!-- Address & Contact -->
+    <div class="pharm-detail-row">
+      <span class="detail-icon">📍</span>
+      <span class="detail-text">{{ p.address }}, {{ p.city }}, {{ p.state }} - {{ p.pincode }}</span>
+    </div>
+
+    <div class="pharm-meta-grid">
+      <div class="meta-item">
+        <span class="meta-label">🕒 Operating Hours:</span>
+        <span class="meta-value">{{ p.hours }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">📞 Telephone:</span>
+        <span class="meta-value"><a href="tel:{{ p.phone }}">{{ p.phone }}</a></span>
+      </div>
+    </div>
+
+    <!-- Inventory Updates (If any reported) -->
+    {% if p.inventory_updates %}
+    <div class="recent-updates-box">
+      <span class="updates-heading">Recent Store-Reported Stock:</span>
+      <div class="stock-pills-list">
+        {% for u in p.inventory_updates[:3] %}
+          <div class="stock-pill">
+            <span class="stock-med">{{ u.drug_name }} ({{ u.dosage_form }})</span>
+            <span class="stock-qty">{{ u.stock_units }} units</span>
+            <span class="stock-price">₹{{ "%.2f"|format(u.listed_price) }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="source-attribution-row">
+      <span class="source-tag">Source: {{ p.source_name }}</span>
+      <span class="source-coords">[{{ "%.4f"|format(p.latitude) }}, {{ "%.4f"|format(p.longitude) }}]</span>
+    </div>
+  </div>
+
+  <div class="pharm-card-actions">
+    <a href="tel:{{ p.phone }}" class="btn-action btn-call" aria-label="Call {{ p.name }}">
+      📞 Call Pharmacy
+    </a>
+    <a href="{{ p.google_directions_url }}"
+       target="_blank" rel="noopener noreferrer" class="btn-action btn-google-dir" title="Open Google Maps turn-by-turn directions from your search location">
+      🗺️ Directions in Google Maps ↗
+    </a>
+    <a href="{{ p.osm_directions_url or p.directions_url }}"
+       target="_blank" rel="noopener noreferrer" class="btn-action btn-osm-dir" title="Open OpenStreetMap OSRM driving directions">
+      🧭 Directions in OpenStreetMap ↗
+    </a>
+    {% if p.online_order_url %}
+    <a href="{{ p.online_order_url }}" target="_blank" rel="noopener noreferrer" class="btn-action btn-order-link" title="Visit authorized online store">
+      🌐 Official Store Page ↗
+    </a>
+    {% endif %}
+  </div>
+</div>

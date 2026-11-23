@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Two-Step Verification - PharmaTrack DW{% endblock %}
+
+{% block content %}
+<div class="login-wrapper">
+
+  <!-- EMERGENCY DIRECT ACCESS NOTICE -->
+  <aside class="emergency-hero-callout" aria-label="Emergency Direct Access">
+    <div class="emergency-hero-header">
+      <span class="emergency-icon-large">🚨</span>
+      <div>
+        <h3>Facing a Life-Threatening Emergency?</h3>
+        <p>You do not need to sign in. Call official emergency responders directly:</p>
+      </div>
+    </div>
+    <div class="emergency-hero-buttons">
+      <a href="tel:108" class="btn-emergency-hero call-108" aria-label="Call 108 Tamil Nadu Emergency Ambulance">
+        <span class="btn-icon">📞</span>
+        <div>
+          <span class="btn-title">Call 108</span>
+          <span class="btn-desc">Tamil Nadu Ambulance Service</span>
+        </div>
+      </a>
+      <a href="tel:112" class="btn-emergency-hero call-112" aria-label="Call 112 All India Emergency Response">
+        <span class="btn-icon">📞</span>
+        <div>
+          <span class="btn-title">Call 112</span>
+          <span class="btn-desc">All India Emergency ERSS</span>
+        </div>
+      </a>
+      <a href="{{ url_for('emergency') }}" class="btn-emergency-alt">
+        🏥 Find Nearest Emergency Hospital ↗
+      </a>
+    </div>
+  </aside>
+
+  <!-- 2FA VERIFICATION CARD -->
+  <div class="login-card-container">
+    <div class="login-card totp-auth-card">
+      
+      <div class="login-header">
+        <div class="login-icon">🛡️</div>
+        <h2>Two-Step Verification</h2>
+        <p class="login-desc">
+          Account <strong>{{ username }}</strong> has two-step verification enabled.<br>
+          Open your authenticator app (Google Authenticator, Microsoft Authenticator, etc.) and enter the current 6-digit code.
+        </p>
+      </div>
+
+      <div class="user-verification-chip">
+        <span class="badge badge-public">Signing in as:</span>
+        <span class="verification-account-name"><strong>{{ username }}</strong> ({{ role|replace('_', ' ')|title }})</span>
+      </div>
+
+      {% if error %}
+      <div class="auth-error-box" role="alert">
+        <span class="error-icon">⚠️</span>
+        <span class="error-message">{{ error }}</span>
+      </div>
+      {% endif %}
+
+      <form action="{{ url_for('login_2fa') }}" method="POST" class="auth-form" autocomplete="off">
+        <div class="form-group">
+          <label for="totp_code" class="form-label text-center">
+            <strong>Enter 6-Digit Authenticator Code</strong> <span class="required">*</span>
+          </label>
+          <div class="totp-input-container">
+            <input 
+              type="text" 
+              id="totp_code" 
+              name="totp_code" 
+              class="form-control totp-code-input" 
+              placeholder="000 000" 
+              maxlength="7" 
+              pattern="[0-9 ]{6,7}"
+              required 
+              autofocus 
+              autocomplete="one-time-code"
+              inputmode="numeric"
+            >
+          </div>
+          <span class="form-hint text-center">Enter the time-sensitive 6-digit code currently visible in your authenticator app.</span>
+        </div>
+
+        <button type="submit" class="btn-submit-login">
+          Verify & Sign In →
+        </button>
+      </form>
+
+      <!-- RECOVERY CODE FALLBACK OPTION -->
+      <div class="auth-switch-box">
+        <p class="auth-switch-text">Can't access your phone or authenticator app?</p>
+        <a href="{{ url_for('login_recovery') }}" class="btn-auth-switch" id="link-use-recovery">
+          🔑 Use an Emergency Recovery Code
+        </a>
+      </div>
+
+      <div class="auth-cancel-row">
+        <a href="{{ url_for('cancel_2fa') }}" class="link-muted">
+          ← Cancel and return to Sign In
+        </a>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+

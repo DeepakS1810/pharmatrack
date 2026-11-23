@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block title %}Pharmacy Owner Operations & Stock Management{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  
+  <div class="page-header">
+    <div class="page-header-text">
+      <h2>📋 Pharmacy Owner Portal: Store & Inventory Operations</h2>
+      <p>Submit verified pharmacy-reported stock updates, manage assigned dispensary profile information, and audit past submissions.</p>
+    </div>
+    <div class="page-header-badge">
+      <span class="badge badge-owner">Authorized Franchise Operator</span>
+    </div>
+  </div>
+
+  <!-- MULTI-LOCATION SELECTOR -->
+  {% if assigned_pharms|length > 1 %}
+  <div class="location-switcher-card">
+    <label for="pharm-switch" class="form-label">
+      <strong>Switch Active Franchise / Dispensary:</strong>
+    </label>
+    <select id="pharm-switch" class="form-control" onchange="window.location.href='/owner/dashboard?pharmacy_key=' + this.value">
+      {% for p in assigned_pharms %}
+        <option value="{{ p.pharmacy_key }}" {{ 'selected' if active_pharmacy and active_pharmacy.pharmacy_key == p.pharmacy_key else '' }}>
+          {{ p.name }} ({{ p.city }}, {{ p.state }}) - PIN: {{ p.pincode }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+
+  {% if active_pharmacy %}
+  <div class="owner-workspace-grid">
+    
+    <!-- LEFT: LOCATION PROFILE & EDIT CARD -->
+    <div class="owner-profile-card">
+      <div class="profile-card-header">
+        <div>
+          <span class="profile-chain-badge">{{ active_pharmacy.chain }}</span>
+          <h3>{{ active_pharmacy.name }}</h3>
+        </div>
+        <button type="button" class="btn-sm btn-outline" id="btn-toggle-edit-profile" onclick="toggleEditProfile()">
+          ✏️ Edit Profile
+        </button>
+      </div>
+
+      <!-- VIEW MODE -->
+      <div id="profile-view-mode" class="profile-details-list">
+        <div class="profile-item">
+          <strong>Address:</strong>
+          <span>{{ active_pharmacy.address }}, {{ active_pharmacy.city }}, {{ active_pharmacy.state }} - {{ active_pharmacy.pincode }}</span>
+        </div>
+        <div class="profile-item">
+          <strong>Operating Hours:</strong>
+          <span id="view-hours">{{ active_pharmacy.hours }}</span>
+        </div>
+        <div class="profile-item">
+          <strong>Phone:</strong>
+          <span><a href="tel:{{ active_pharmacy.phone }}" id="view-phone">{{ active_pharmacy.phone }}</a></span>
+        </div>
+        <div class="profile-item">
+          <strong>Official Order Page:</strong>
+          {% if active_pharmacy.online_order_url %}
+            <a href="{{ active_pharmacy.online_order_url }}" target="_blank" rel="noopener" id="view-url">{{ active_pharmacy.online_order_url }} ↗</a>
+          {% else %}
+            <span class="text-muted" id="view-url">Not registered</span>
+          {% endif %}
+        </div>
+        <div class="profile-item">
+          <strong>GPS Coordinates:</strong>
+          <span>[{{ "%.4f"|format(active_pharmacy.latitude) }}, {{ "%.4f"|format(active_pharmacy.longitude) }}]</span>
+        </div>
+      </div>
+
+      <!-- EDIT MODE FORM -->
+      <form id="profile-edit-mode" action="{{ url_for('owner_update_profile') }}" method="POST" class="profile-edit-form" style="display: none;">
+        <input type="hidden" name="pharmacy_key" value="{{ active_pharmacy.pharmacy_key }}">
+        
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="edit-phone" class="form-label"><strong>Contact Phone Number:</strong></label>
+          <input type="tel" id="edit-phone" name="phone" class="form-control" value="{{ active_pharmacy.phone }}" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="edit-hours" class="form-label"><strong>Operating Hours:</strong></label>
+          <input type="text" id="edit-hours" name="hours" class="form-control" value="{{ active_pharmacy.hours }}" placeholder="e.g. 24 Hours Open or 08:00 - 23:00" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label for="edit-url" class="form-label"><strong>Online Store / Order URL:</strong></label>
+          <input type="url" id="edit-url" name="online_order_url" class="form-control" value="{{ active_pharmacy.online_order_url or '' }}" placeholder="https://www.apollopharmacy.in/...">
+        </div>
+
+        <div class="form-actions-bar" style="display: flex; gap: 8px;">
+          <button type="submit" class="btn-primary btn-save">
+            💾 Save Profile Details
+          </button>
+          <button type="button" class="btn-secondary btn-cancel" onclick="toggleEditProfile(false)">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- RIGHT: STOCK UPDATE FORM -->
+    <div class="owner-form-card">
+      <div class="form-card-header">
+        <h3>Submit Pharmacy-Reported Stock Update</h3>
+        <p class="form-subtitle">Updates are labeled as <strong>pharmacy-reported</strong> with your verified identity and submission timestamp.</p>
+      </div>
+
+      <form action="{{ url_for('owner_update_stock') }}" method="POST" class="stock-update-form" id="stock-update-form">
+        <input type="hidden" name="pharmacy_key" value="{{ active_pharmacy.pharmacy_key }}">
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="product-select" class="form-label">Select Medicine Formulation & Active Ingredient:</label>
+            <select id="product-select" name="product_key" class="form-control" required>
+              {% for pr in products %}
+                <option value="{{ pr.product_key }}">
+                  {{ pr.drug_name }} [{{ pr.active_ingredient }}] — {{ pr.dosage_form }} {{ pr.standard_strength }} ({{ pr.brand_examples }})
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="status-code-select" class="form-label">Availability Status:</label>
+            <select id="status-code-select" name="status_code" class="form-control" required>
+              <option value="CONFIRMED_LIVE" selected>In Stock (Confirmed Available)</option>
+              <option value="LOW_STOCK">Low Stock (Limited Quantity)</option>
+              <option value="OUT_OF_STOCK">Out of Stock</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="stock-units-input" class="form-label">Available Units (Packs / Bottles):</label>
+            <input type="number" id="stock-units-input" name="stock_units" class="form-control" min="0" value="50" required>
+          </div>
+
+          <div class="form-group">
+            <label for="price-input" class="form-label">Listed Retail Price (₹ INR):</label>
+            <input type="number" step="0.01" id="price-input" name="listed_price" class="form-control" min="0" value="45.00" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="notes-input" class="form-label">Update Notes & Batch Details (Optional):</label>
+          <input type="text" id="notes-input" name="notes" class="form-control" placeholder="e.g. Formulation batch verified, refrigerated cold-chain storage maintained">
+        </div>
+
+        <div class="form-actions-bar">
+          <button type="submit" class="btn-primary btn-save">
+            💾 Save Stock Submission
+          </button>
+          <button type="reset" class="btn-secondary btn-cancel" onclick="resetStockForm()">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+
+  <!-- PREVIOUS UPDATES LOG TABLE -->
+  <div class="data-table-card">
+    <div class="card-header">
+      <div>
+        <h3>Previous Inventory Submissions ({{ active_pharmacy.name }})</h3>
+        <span class="table-subtitle">Audit trail of pharmacy-reported stock submissions & staleness verification</span>
+      </div>
+      <span class="badge badge-info" style="align-self: center;">Staleness Threshold: 48 Hours</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Update ID</th>
+            <th>Medicine</th>
+            <th>Formulation & Strength</th>
+            <th>Availability</th>
+            <th>Available Units</th>
+            <th>Listed Price</th>
+            <th>Submitter</th>
+            <th>Submission Timestamp</th>
+            <th>Freshness (48h Rule)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if updates %}
+            {% for u in updates %}
+            <tr>
+              <td>#{{ u.update_id }}</td>
+              <td><strong>{{ u.drug_name }}</strong></td>
+              <td>{{ u.dosage_form }} ({{ u.standard_strength }})</td>
+              <td><span class="status-badge badge-reported">pharmacy-reported</span></td>
+              <td>{{ u.stock_units }} units</td>
+              <td>₹{{ "%.2f"|format(u.listed_price) }}</td>
+              <td>{{ u.reporter_name }}</td>
+              <td>{{ u.timestamp }}</td>
+              <td>
+                {% if u.is_stale %}
+                  <span class="badge badge-stale" style="background:#fee2e2; color:#991b1b; border:1px solid #fecaca; font-weight:600; font-size:0.75rem; padding:3px 8px; border-radius:4px;">
+                    ⚠️ Stale (>48h - Re-verification Required)
+                  </span>
+                {% else %}
+                  <span class="badge badge-fresh" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0; font-weight:600; font-size:0.75rem; padding:3px 8px; border-radius:4px;">
+                    ✓ Active (&lt;48h)
+                  </span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="9" class="text-center text-muted">No previous stock updates submitted for this location. Use the form above to post your first inventory report.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    function toggleEditProfile(showEdit) {
+      const viewBox = document.getElementById('profile-view-mode');
+      const editBox = document.getElementById('profile-edit-mode');
+      const btn = document.getElementById('btn-toggle-edit-profile');
+      
+      const shouldEdit = (showEdit !== undefined) ? showEdit : (viewBox.style.display !== 'none');
+      if (shouldEdit) {
+        viewBox.style.display = 'none';
+        editBox.style.display = 'block';
+        btn.innerText = '❌ Close Edit';
+      } else {
+        viewBox.style.display = 'block';
+        editBox.style.display = 'none';
+        btn.innerText = '✏️ Edit Profile';
+      }
+    }
+
+    function resetStockForm() {
+      const form = document.getElementById('stock-update-form');
+      if (form) form.reset();
+    }
+  </script>
+
+  {% else %}
+  <div class="empty-state-card">
+    <h3>No Assigned Pharmacy</h3>
+    <p>Your user account is not currently linked to any pharmacy locations.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
